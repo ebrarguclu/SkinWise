@@ -10,4 +10,27 @@ async function getAllProducts(req, res) {
   return res.status(200).json(data);                       // 200 = başarılı
 }
 
-module.exports = { getAllProducts };
+async function getProductById(req, res) {
+  const id = Number(req.params.id);
+
+  // sayi olmayan id'ler veritabanina gitmeden 404 doner
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+  if (!data) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+  return res.status(200).json(data);
+}
+
+module.exports = { getAllProducts, getProductById };
