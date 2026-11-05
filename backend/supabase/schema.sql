@@ -29,25 +29,50 @@ drop table if exists public.cart_items         cascade;
 drop table if exists public.products           cascade;
 drop table if exists public.categories         cascade;
 drop table if exists public.users              cascade;
+drop trigger  if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user();
+drop table if exists public.profiles           cascade;
 
 
 -- ---------------------------------------------------------------------
--- 1) USERS - musteriler ve yoneticiler tek tabloda, "role" ile ayrilir
---    (Madde 10: 4 rol, Madde 14: musteri alanlari, Madde 17: hash)
+-- 1) PROFILES - kullanici bilgileri (Madde 10, 14, 17)
+--    Giris sistemi Supabase Auth: e-posta ve sifre auth.users tablosunda,
+--    sifre Supabase tarafindan bcrypt ile hash'lenir. Biz sifre SAKLAMAYIZ.
+--    profiles, auth.users ile ayni id'yi (uuid) kullanir. (Tasarim: Idil Isil, DP-13)
 -- ---------------------------------------------------------------------
-create table public.users (
-  id            bigint generated always as identity primary key,
-  name          text not null,
-  tax_id        text,                       -- yoneticilerde bos olabilir
-  email         text not null,
-  home_address  text,
-  password_hash text not null,              -- bcrypt hash; duz sifre ASLA saklanmaz
-  role          text not null default 'customer'
-                check (role in ('customer', 'sales_manager', 'product_manager', 'support_agent')),
-  created_at    timestamptz not null default now()
+create table public.profiles (
+  id         uuid primary key references auth.users (id) on delete cascade,
+  full_name  text not null default '',
+  tax_id     text not null default '',
+  address    text not null default '',
+  role       text not null default 'customer'
+             check (role in ('customer', 'sales_manager', 'product_manager', 'support_agent')),
+  created_at timestamptz not null default now()
 );
--- "Ali@x.com" ile "ali@x.com" ayni hesap sayilsin diye kucuk harfle tekil
-create unique index users_email_unique on public.users (lower(email));
+
+-- Yeni kullanici kayit olunca profil satiri otomatik olusur.
+-- Kayit sirasinda gonderilen full_name, tax_id ve address bilgileri buraya yazilir.
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, full_name, tax_id, address)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'full_name', ''),
+    coalesce(new.raw_user_meta_data ->> 'tax_id', ''),
+    coalesce(new.raw_user_meta_data ->> 'address', '')
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
 
 -- ---------------------------------------------------------------------
@@ -95,7 +120,7 @@ create index products_category_id_idx on public.products (category_id);
 --    Misafir sepeti tarayicida (localStorage) durur; giriste buraya tasinir.
 -- ---------------------------------------------------------------------
 create table public.cart_items (
-  user_id    bigint not null references public.users (id) on delete cascade,
+  user_id    uuid   not null references public.profiles (id) on delete cascade,
   product_id bigint not null references public.products (id) on delete cascade,
   quantity   integer not null check (quantity > 0),
   updated_at timestamptz not null default now(),
@@ -108,7 +133,7 @@ create table public.cart_items (
 -- ---------------------------------------------------------------------
 create table public.orders (
   id               bigint generated always as identity primary key,
-  user_id          bigint not null references public.users (id) on delete restrict,
+  user_id          uuid   not null references public.profiles (id) on delete restrict,
   status           text not null default 'processing'
                    check (status in ('processing', 'in_transit', 'delivered', 'cancelled')),
   total_amount     numeric(10, 2) not null check (total_amount >= 0),
@@ -164,7 +189,7 @@ create index invoices_created_at_idx on public.invoices (created_at);  -- tarih 
 -- ---------------------------------------------------------------------
 create table public.reviews (
   id             bigint generated always as identity primary key,
-  user_id        bigint not null references public.users (id) on delete cascade,
+  user_id        uuid   not null references public.profiles (id) on delete cascade,
   product_id     bigint not null references public.products (id) on delete cascade,
   rating         integer not null check (rating between 1 and 5),
   comment        text,
@@ -180,7 +205,7 @@ create index reviews_product_id_idx on public.reviews (product_id);
 -- 9) WISHLIST_ITEMS - indirim bildirimleri buradan bulunur (Madde 11)
 -- ---------------------------------------------------------------------
 create table public.wishlist_items (
-  user_id    bigint not null references public.users (id) on delete cascade,
+  user_id    uuid   not null references public.profiles (id) on delete cascade,
   product_id bigint not null references public.products (id) on delete cascade,
   created_at timestamptz not null default now(),
   primary key (user_id, product_id)
@@ -194,7 +219,7 @@ create index wishlist_items_product_id_idx on public.wishlist_items (product_id)
 create table public.refund_requests (
   id            bigint generated always as identity primary key,
   order_item_id bigint not null references public.order_items (id) on delete restrict,
-  user_id       bigint not null references public.users (id) on delete restrict,
+  user_id       uuid   not null references public.profiles (id) on delete restrict,
   quantity      integer not null check (quantity > 0),
   refund_amount numeric(10, 2) not null check (refund_amount >= 0),  -- unit_price x quantity
   reason        text,
@@ -211,8 +236,8 @@ create index refund_requests_order_item_id_idx on public.refund_requests (order_
 -- ---------------------------------------------------------------------
 create table public.chat_conversations (
   id          bigint generated always as identity primary key,
-  customer_id bigint references public.users (id) on delete set null,  -- bos = misafir
-  agent_id    bigint references public.users (id) on delete set null,  -- bos = kuyrukta bekliyor
+  customer_id uuid references public.profiles (id) on delete set null,  -- bos = misafir
+  agent_id    uuid references public.profiles (id) on delete set null,  -- bos = kuyrukta bekliyor
   guest_token text,                                                     -- misafiri tanimak icin
   status      text not null default 'waiting'
               check (status in ('waiting', 'active', 'closed')),
@@ -225,7 +250,7 @@ create index chat_conversations_status_idx on public.chat_conversations (status)
 create table public.chat_messages (
   id              bigint generated always as identity primary key,
   conversation_id bigint not null references public.chat_conversations (id) on delete cascade,
-  sender_id       bigint references public.users (id) on delete set null,  -- bos = misafir
+  sender_id       uuid references public.profiles (id) on delete set null,  -- bos = misafir
   sender_role     text not null check (sender_role in ('customer', 'agent')),
   body            text,
   attachment_url  text,
@@ -299,9 +324,10 @@ join public.orders o on o.id = oi.order_id;
 -- ---------------------------------------------------------------------
 -- 13) GUVENLIK (RLS) - tum tablolarda acik.
 --     Herkese acik olan tek sey katalog: kategoriler ve aktif urunler.
+--     Giris yapan kullanici sadece kendi profilini okuyabilir.
 --     Geri kalan her sey sadece backend (secret key) uzerinden erisilir.
 -- ---------------------------------------------------------------------
-alter table public.users              enable row level security;
+alter table public.profiles           enable row level security;
 alter table public.categories         enable row level security;
 alter table public.products           enable row level security;
 alter table public.cart_items         enable row level security;
@@ -314,6 +340,9 @@ alter table public.wishlist_items     enable row level security;
 alter table public.refund_requests    enable row level security;
 alter table public.chat_conversations enable row level security;
 alter table public.chat_messages      enable row level security;
+
+create policy "Users can read their own profile"
+  on public.profiles for select to authenticated using ((select auth.uid()) = id);
 
 create policy "Categories are readable by everyone"
   on public.categories for select to anon, authenticated using (true);

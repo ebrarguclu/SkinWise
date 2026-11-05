@@ -9,22 +9,26 @@ GitHub draws the diagrams below automatically.
 
 ```mermaid
 erDiagram
+  AUTH_USERS ||--|| PROFILES : "has profile"
   CATEGORIES ||--o{ PRODUCTS : contains
-  USERS ||--o{ CART_ITEMS : "has in cart"
+  PROFILES ||--o{ CART_ITEMS : "has in cart"
   PRODUCTS ||--o{ CART_ITEMS : "added as"
-  USERS ||--o{ ORDERS : places
+  PROFILES ||--o{ ORDERS : places
   ORDERS ||--|{ ORDER_ITEMS : contains
   PRODUCTS ||--o{ ORDER_ITEMS : "sold as"
   ORDERS ||--o| PAYMENTS : "paid by"
   ORDERS ||--o| INVOICES : "billed in"
 
-  USERS {
-    bigint id PK
-    text name
+  AUTH_USERS {
+    uuid id PK
+    text email UK
+    text encrypted_password "bcrypt, managed by Supabase Auth"
+  }
+  PROFILES {
+    uuid id PK,FK "same id as auth.users"
+    text full_name
     text tax_id
-    text email UK "unique, case-insensitive"
-    text home_address
-    text password_hash "bcrypt"
+    text address
     text role "customer | sales_manager | product_manager | support_agent"
     timestamptz created_at
   }
@@ -57,14 +61,14 @@ erDiagram
     timestamptz created_at
   }
   CART_ITEMS {
-    bigint user_id PK,FK
+    uuid user_id PK,FK
     bigint product_id PK,FK
     int quantity "check > 0"
     timestamptz updated_at
   }
   ORDERS {
     bigint id PK
-    bigint user_id FK
+    uuid user_id FK
     text status "processing | in_transit | delivered | cancelled"
     numeric total_amount
     text delivery_address "copy at order time"
@@ -102,17 +106,17 @@ erDiagram
 
 ```mermaid
 erDiagram
-  USERS ||--o{ REVIEWS : writes
+  PROFILES ||--o{ REVIEWS : writes
   PRODUCTS ||--o{ REVIEWS : receives
-  USERS ||--o{ WISHLIST_ITEMS : saves
+  PROFILES ||--o{ WISHLIST_ITEMS : saves
   PRODUCTS ||--o{ WISHLIST_ITEMS : "saved as"
   ORDER_ITEMS ||--o{ REFUND_REQUESTS : "returned via"
-  USERS ||--o{ REFUND_REQUESTS : requests
-  USERS |o--o{ CHAT_CONVERSATIONS : "opens (customer)"
-  USERS |o--o{ CHAT_CONVERSATIONS : "claims (agent)"
+  PROFILES ||--o{ REFUND_REQUESTS : requests
+  PROFILES |o--o{ CHAT_CONVERSATIONS : "opens (customer)"
+  PROFILES |o--o{ CHAT_CONVERSATIONS : "claims (agent)"
   CHAT_CONVERSATIONS ||--|{ CHAT_MESSAGES : contains
 
-  USERS { bigint id PK }
+  PROFILES { uuid id PK }
   PRODUCTS { bigint id PK }
   ORDER_ITEMS {
     bigint id PK
@@ -120,7 +124,7 @@ erDiagram
   }
   REVIEWS {
     bigint id PK
-    bigint user_id FK
+    uuid user_id FK
     bigint product_id FK
     int rating "1-5, visible at once"
     text comment
@@ -128,14 +132,14 @@ erDiagram
     timestamptz created_at
   }
   WISHLIST_ITEMS {
-    bigint user_id PK,FK
+    uuid user_id PK,FK
     bigint product_id PK,FK
     timestamptz created_at
   }
   REFUND_REQUESTS {
     bigint id PK
     bigint order_item_id FK
-    bigint user_id FK
+    uuid user_id FK
     int quantity
     numeric refund_amount "unit_price x quantity"
     text reason
@@ -145,8 +149,8 @@ erDiagram
   }
   CHAT_CONVERSATIONS {
     bigint id PK
-    bigint customer_id FK "null = guest"
-    bigint agent_id FK "null = waiting in queue"
+    uuid customer_id FK "null = guest"
+    uuid agent_id FK "null = waiting in queue"
     text guest_token
     text status "waiting | active | closed"
     timestamptz created_at
@@ -155,7 +159,7 @@ erDiagram
   CHAT_MESSAGES {
     bigint id PK
     bigint conversation_id FK
-    bigint sender_id FK "null = guest"
+    uuid sender_id FK "null = guest"
     text sender_role "customer | agent"
     text body
     text attachment_url
@@ -178,10 +182,11 @@ erDiagram
 | `order_items.unit_price` stores the price at purchase time | Old orders and invoices never change when prices change; refunds pay back the discounted price | 16 |
 | `products.stock` has `check (stock >= 0)` | Two customers buying the last item at once cannot push the stock below zero | 3, 18 |
 | Products are deactivated (`is_active = false`), never deleted | Old orders and invoices still point to them | 12 |
-| No card numbers are stored, only the last 4 digits and a hash; passwords are bcrypt hashes | Sensitive data must not be readable | 15, 17 |
+| Sign-up and login use Supabase Auth: passwords live in `auth.users` as bcrypt hashes. `profiles` shares the same uuid and is filled by the `on_auth_user_created` trigger | We never store or handle plain passwords | 14, 17 |
+| No card numbers are stored, only the last 4 digits and a hash | Card data must not be readable | 15, 17 |
 | Guest cart lives in the browser (localStorage); a logged-in user's cart lives in `cart_items` | Guests can shop without an account; the cart is merged into `cart_items` at login | 4 |
 | `reviews.rating` is visible at once, `comment_status` starts as `pending` | Ratings need no approval, comments need the product manager's approval | 5 |
 | Refunds point to one `order_item`, not the whole order | Customers return products selectively | 16 |
 | Average rating and popularity are computed in a view, not stored | A stored copy would drift out of date | 5, 7 |
 | Status columns use `text` + `check` instead of Postgres enums | Easier to change later | — |
-| Row Level Security is on for every table; only categories and active products are publicly readable | Everything else is reachable only through the backend | 17 |
+| Row Level Security is on for every table; only categories and active products are publicly readable, and a logged-in user can read only their own profile | Everything else is reachable only through the backend | 17 |
