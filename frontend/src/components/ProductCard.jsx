@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { formatPrice } from '../data/products.js'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
+import { addToCartMessage } from '../lib/cart.js'
 
 export default function ProductCard({ product }) {
   const { add } = useCart()
@@ -9,8 +10,8 @@ export default function ProductCard({ product }) {
   const soldOut = product.stock === 0
 
   const handleAdd = () => {
-    add(product)
-    toast.success(`${product.name} added to cart`)
+    const { type, text } = addToCartMessage(product, add(product))
+    toast[type](text)
   }
 
   return (

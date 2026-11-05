@@ -4,6 +4,7 @@ import { formatPrice } from '../data/products.js'
 import { fetchProduct } from '../api/products.js'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
+import { addToCartMessage } from '../lib/cart.js'
 import EmptyState from '../components/EmptyState.jsx'
 
 // TEMPORARY: Mehlika's product page work (reviews, ratings) will be added here.
@@ -41,7 +42,7 @@ export default function ProductDetail() {
           {soldOut ? 'Out of stock' : `${product.stock} in stock`}
         </p>
         <button className="btn btn-primary" disabled={soldOut}
-          onClick={() => { add(product); toast.success('Added to cart') }}>
+          onClick={() => { const { type, text } = addToCartMessage(product, add(product)); toast[type](text) }}>
           {soldOut ? 'Out of stock' : 'Add to cart'}
         </button>
         <div className="card pad mt">
