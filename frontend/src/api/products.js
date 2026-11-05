@@ -1,14 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001'
-
-async function request(path) {
-  const res = await fetch(`${API_URL}${path}`)
-  if (!res.ok) {
-    const error = new Error(`Request to ${path} failed with status ${res.status}`)
-    error.status = res.status
-    throw error
-  }
-  return res.json()
-}
+import { request } from './client.js'
 
 export const fetchProducts = () => request('/products')
 

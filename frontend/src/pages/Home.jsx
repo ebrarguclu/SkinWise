@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
-import { categories } from '../data/products.js'
+import { useCategories } from '../hooks/useCategories.js'
 import { useProducts } from '../hooks/useProducts.js'
 import ProductCard from '../components/ProductCard.jsx'
 
 export default function Home() {
   const { products, loading, error } = useProducts()
-  const featured = products.filter((p) => p.rating >= 4.6).slice(0, 4)
+  const { categories } = useCategories()
+  // Top 4 by rating. Ratings now come from real reviews, so a fixed
+  // "rating >= 4.6" filter would leave this section empty until people review.
+  const featured = [...products].sort((a, b) => b.rating - a.rating).slice(0, 4)
 
   return (
     <>
@@ -26,7 +29,7 @@ export default function Home() {
         <h2>Shop by category</h2>
         <div className="cat-grid">
           {categories.map((c) => (
-            <Link key={c.id} to={`/products?category=${c.id}`} className="cat-item">
+            <Link key={c.id} to={`/products?category=${c.slug}`} className="cat-item">
               <span>{c.icon}</span>
               {c.name}
             </Link>

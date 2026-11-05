@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
-import { categories } from '../data/products.js'
 import { useProducts } from '../hooks/useProducts.js'
+import { useCategories } from '../hooks/useCategories.js'
 import ProductCard from '../components/ProductCard.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -13,6 +13,7 @@ export default function Products() {
   const sort = params.get('sort') || ''
 
   const { products, loading, error } = useProducts()
+  const { categories } = useCategories()
 
   let list = products.filter((p) =>
     (!category || p.category === category) &&
@@ -38,7 +39,7 @@ export default function Products() {
         <div className="row gap-s wrap">
           <select value={category} onChange={(e) => set('category', e.target.value)} aria-label="Category">
             <option value="">All categories</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {categories.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
           </select>
           <select value={sort} onChange={(e) => set('sort', e.target.value)} aria-label="Sort">
             <option value="">Sort by</option>
