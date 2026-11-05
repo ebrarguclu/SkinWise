@@ -1,8 +1,9 @@
 const supabase = require('../config/supabaseClient');
 
 async function getAllProducts(req, res) {
-  // products tablosundaki tüm satırları çek
-  const { data, error } = await supabase.from('products').select('*');
+  // product_catalog view'i: aktif urunler + kategori slug'i + ortalama puan
+  // (bkz. backend/supabase/schema.sql)
+  const { data, error } = await supabase.from('product_catalog').select('*');
 
   if (error) {
     return res.status(500).json({ error: error.message }); // 500 = sunucu hatası
@@ -19,7 +20,7 @@ async function getProductById(req, res) {
   }
 
   const { data, error } = await supabase
-    .from('products')
+    .from('product_catalog')
     .select('*')
     .eq('id', id)
     .maybeSingle();

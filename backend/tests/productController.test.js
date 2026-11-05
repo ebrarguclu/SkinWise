@@ -21,7 +21,7 @@ test('GET /products returns 200 and the product list', async () => {
   const res = mockRes();
   await getAllProducts({}, res);
 
-  expect(supabase.from).toHaveBeenCalledWith('products');
+  expect(supabase.from).toHaveBeenCalledWith('product_catalog');
   expect(res.status).toHaveBeenCalledWith(200);
   expect(res.json).toHaveBeenCalledWith(fakeProducts);
 });
