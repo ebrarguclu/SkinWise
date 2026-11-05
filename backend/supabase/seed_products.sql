@@ -1,36 +1,17 @@
 -- =====================================================================
 -- SkinWise urun verisi: 50 urun (Jira: Sprint 1, Madde 9 - Idil Sunar)
--- schema.sql CALISTIRILDIKTAN SONRA calistirilir.
--- Calistirma: Supabase Dashboard > SQL Editor > dosyanin tamamini yapistir > Run
---
--- Tekrar calistirmak guvenlidir: ayni serial_number varsa urun tekrar eklenmez.
--- Markalar ve distributorler kurgusaldir. Fiyatlar USD (frontend USD gosteriyor).
--- cost bos birakildi: schema.sql'e gore bos ise fiyatin %50'si kullanilir (Madde 11).
--- Gorseller: backend/supabase/product-images/ klasorundeki 50 dosya,
--- Storage'daki 'product-images' bucket'ina yuklenir (dosya adlari ayni kalmali).
 -- =====================================================================
 
 
--- ---------------------------------------------------------------------
--- 1) Gorseller icin public bucket (yoksa olusturur)
--- ---------------------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
 
-
--- ---------------------------------------------------------------------
--- 2) schema.sql'deki 8 ornek urunu kaldir (yerlerine bu 50 urun geliyor)
--- ---------------------------------------------------------------------
 delete from public.products
 where serial_number in ('SW-CL-0001', 'SW-MO-0001', 'SW-SE-0001', 'SW-SU-0001', 'SW-MA-0001', 'SW-TO-0001', 'SW-SE-0002', 'SW-MO-0002');
 
 
--- ---------------------------------------------------------------------
--- 3) 50 urun
---    image_url = proje adresi + dosya adi. Proje adresi asagida TEK yerde
---    (proje degisirse sadece bu adres guncellenir).
--- ---------------------------------------------------------------------
+
 insert into public.products
   (category_id, name, brand, model, serial_number, description, price, stock,
    warranty_status, distributor, skin_type, badges, emoji, image_url)
@@ -246,9 +227,6 @@ order by v.sort_order
 on conflict (serial_number) do nothing;
 
 
--- ---------------------------------------------------------------------
--- 4) Kontrol: 50 urun ve kategori dagilimi
--- ---------------------------------------------------------------------
 select c.name as category, count(p.id) as products, sum((p.stock = 0)::int) as sold_out
 from public.categories c
 left join public.products p on p.category_id = c.id
