@@ -3,6 +3,7 @@ import { formatPrice } from '../data/products.js'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { addToCartMessage } from '../lib/cart.js'
+import { stockLabel } from '../lib/stock.js'
 
 export default function ProductCard({ product }) {
   const { add } = useCart()
@@ -17,7 +18,10 @@ export default function ProductCard({ product }) {
   return (
     <article className="card product-card">
       <Link to={`/products/${product.id}`} className="product-img" aria-label={product.name}>
-        <span>{product.emoji}</span>
+        {/* Photo from Supabase Storage; the emoji is shown until a photo is uploaded */}
+        {product.image_url
+          ? <img src={product.image_url} alt={product.name} loading="lazy" />
+          : <span>{product.emoji}</span>}
         {soldOut && <em className="tag tag-out">Sold out</em>}
       </Link>
       <div className="product-body">
@@ -30,6 +34,7 @@ export default function ProductCard({ product }) {
           <strong>{formatPrice(product.price)}</strong>
           <span className="muted">★ {product.rating}</span>
         </div>
+        <small className={soldOut ? 'stock out' : 'stock'}>{stockLabel(product.stock)}</small>
         <button className="btn btn-primary btn-block" disabled={soldOut} onClick={handleAdd}>
           {soldOut ? 'Out of stock' : 'Add to cart'}
         </button>
