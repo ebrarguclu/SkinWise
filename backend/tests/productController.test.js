@@ -21,7 +21,7 @@ test('GET /products returns 200 and the product list', async () => {
   const res = mockRes();
   await getAllProducts({}, res);
 
-  expect(supabase.from).toHaveBeenCalledWith('products');
+  expect(supabase.from).toHaveBeenCalledWith('product_catalog');
   expect(res.status).toHaveBeenCalledWith(200);
   expect(res.json).toHaveBeenCalledWith(fakeProducts);
 });
@@ -33,6 +33,77 @@ test('GET /products returns 500 when the database fails', async () => {
 
   const res = mockRes();
   await getAllProducts({}, res);
+
+  expect(res.status).toHaveBeenCalledWith(500);
+  expect(res.json).toHaveBeenCalledWith({ error: 'DB down' });
+});
+
+// ---------- GET /products?category=... (kategoriye gore urunler) ----------
+
+// select().eq() zincirini taklit eder: kategori filtresi eq('category', slug) ile yapilir
+function mockCategoryQuery(result) {
+  const eq = jest.fn().mockResolvedValue(result);
+  supabase.from.mockReturnValue({ select: jest.fn().mockReturnValue({ eq }) });
+  return eq;
+}
+
+test('GET /products?category=serum returns only the products of that category', async () => {
+  const serums = [
+    { id: 3, name: 'Niacinamide 10% Serum', category: 'serum' },
+    { id: 7, name: 'Vitamin C Brightening Serum', category: 'serum' },
+  ];
+  const eq = mockCategoryQuery({ data: serums, error: null });
+
+  const res = mockRes();
+  await getAllProducts({ query: { category: 'serum' } }, res);
+
+  expect(supabase.from).toHaveBeenCalledWith('product_catalog');
+  expect(eq).toHaveBeenCalledWith('category', 'serum');
+  expect(res.status).toHaveBeenCalledWith(200);
+  expect(res.json).toHaveBeenCalledWith(serums);
+});
+
+test('GET /products?category= returns an empty list when the category has no products', async () => {
+  mockCategoryQuery({ data: [], error: null });
+
+  const res = mockRes();
+  await getAllProducts({ query: { category: 'mask' } }, res);
+
+  expect(res.status).toHaveBeenCalledWith(200);
+  expect(res.json).toHaveBeenCalledWith([]);
+});
+
+test('GET /products with an empty category returns all products without filtering', async () => {
+  const allProducts = [{ id: 1 }, { id: 2 }];
+  supabase.from.mockReturnValue({
+    select: jest.fn().mockResolvedValue({ data: allProducts, error: null }),
+  });
+
+  const res = mockRes();
+  await getAllProducts({ query: { category: '' } }, res);
+
+  expect(res.status).toHaveBeenCalledWith(200);
+  expect(res.json).toHaveBeenCalledWith(allProducts);
+});
+
+test('GET /products?category= returns 400 for an invalid category without querying', async () => {
+  supabase.from.mockClear();
+
+  for (const bad of ['Serum', 'serum; drop table', ['serum', 'toner']]) {
+    const res = mockRes();
+    await getAllProducts({ query: { category: bad } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Invalid category' });
+  }
+  expect(supabase.from).not.toHaveBeenCalled();
+});
+
+test('GET /products?category=serum returns 500 when the database fails', async () => {
+  mockCategoryQuery({ data: null, error: { message: 'DB down' } });
+
+  const res = mockRes();
+  await getAllProducts({ query: { category: 'serum' } }, res);
 
   expect(res.status).toHaveBeenCalledWith(500);
   expect(res.json).toHaveBeenCalledWith({ error: 'DB down' });

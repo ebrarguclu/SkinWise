@@ -23,12 +23,13 @@ export default function Cart() {
               <div className="cart-emoji">{i.emoji}</div>
               <div className="grow">
                 <Link to={`/products/${i.id}`} className="product-name">{i.name}</Link>
-                <div className="muted">{formatPrice(i.price)}</div>
+                <div className="muted">{formatPrice(i.price)}{i.qty >= i.stock && ` · only ${i.stock} in stock`}</div>
               </div>
               <div className="qty">
-                <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease">−</button>
+                <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease" disabled={i.qty <= 1}>−</button>
                 <span>{i.qty}</span>
-                <button onClick={() => setQty(i.id, i.qty + 1)} aria-label="Increase">+</button>
+                <button onClick={() => setQty(i.id, i.qty + 1)} aria-label="Increase"
+                  disabled={i.qty >= i.stock} title={i.qty >= i.stock ? `Only ${i.stock} in stock` : undefined}>+</button>
               </div>
               <strong>{formatPrice(i.price * i.qty)}</strong>
               <button className="btn-icon" aria-label="Remove"
