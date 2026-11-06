@@ -74,6 +74,14 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Trigger fonksiyonu disaridan cagrilamasin. Rol bilerek metadata'dan okunmaz:
+-- herkes 'customer' baslar, kayit istegiyle yonetici olunamaz.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+-- Yonetici atamak icin SQL Editor'de:
+-- update public.profiles set role = 'product_manager'
+-- where id = (select id from auth.users where email = 'kisi@ornek.com');
+
 
 -- ---------------------------------------------------------------------
 -- 2) CATEGORIES - product manager ekler/siler (Madde 12)
@@ -340,6 +348,11 @@ alter table public.wishlist_items     enable row level security;
 alter table public.refund_requests    enable row level security;
 alter table public.chat_conversations enable row level security;
 alter table public.chat_messages      enable row level security;
+
+-- Kullanici sadece kendi profilini okuyabilir, hicbir satiri degistiremez.
+-- Boylece kimse kendi rolunu yukseltemez.
+revoke all on public.profiles from anon, authenticated;
+grant select on public.profiles to authenticated;
 
 create policy "Users can read their own profile"
   on public.profiles for select to authenticated using ((select auth.uid()) = id);
