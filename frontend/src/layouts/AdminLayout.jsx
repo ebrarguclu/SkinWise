@@ -1,23 +1,24 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
-// NOTE: Role check (only manager roles may enter) will be added here when İdil Y.'s auth work is done.
 const links = [
   { to: '/admin', label: 'Overview', icon: '📊', end: true },
-  { to: '/admin/products', label: 'Products & Stock', icon: '📦', role: 'Product Manager' },
-  { to: '/admin/comments', label: 'Review Approval', icon: '💬', role: 'Product Manager' },
-  { to: '/admin/orders', label: 'Deliveries', icon: '🚚', role: 'Product Manager' },
-  { to: '/admin/reports', label: 'Revenue & Pricing', icon: '💰', role: 'Sales Manager' },
+  { to: '/admin/products', label: 'Products & Stock', icon: '📦', role: 'Product Manager', only: 'product_manager' },
+  { to: '/admin/comments', label: 'Review Approval', icon: '💬', role: 'Product Manager', only: 'product_manager' },
+  { to: '/admin/orders', label: 'Deliveries', icon: '🚚', role: 'Product Manager', only: 'product_manager' },
+  { to: '/admin/reports', label: 'Revenue & Pricing', icon: '💰', role: 'Sales Manager', only: 'sales_manager' },
 ]
 
 export default function AdminLayout() {
   const [open, setOpen] = useState(false)
+  const { user } = useAuth()
   return (
     <div className="admin">
       <aside className={`admin-side ${open ? 'open' : ''}`}>
         <Link to="/admin" className="logo light">Skin<span>Wise</span> <small>Admin</small></Link>
         <nav>
-          {links.map((l) => (
+          {links.filter((l) => !l.only || l.only === user.role).map((l) => (
             <NavLink key={l.to} to={l.to} end={l.end} onClick={() => setOpen(false)}>
               <span>{l.icon}</span> {l.label}
               {l.role && <small>{l.role}</small>}

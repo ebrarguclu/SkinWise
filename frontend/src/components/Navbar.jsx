@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
+import { useToast } from '../context/ToastContext.jsx'
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const { count } = useCart()
+  const { user, logout } = useAuth()
+  const toast = useToast()
   const navigate = useNavigate()
 
   const submit = (e) => {
@@ -14,6 +18,12 @@ export default function Navbar() {
     setOpen(false)
   }
   const close = () => setOpen(false)
+  const handleLogout = async () => {
+    close()
+    await logout()
+    toast.info('Logged out')
+    navigate('/')
+  }
 
   return (
     <header className="navbar">
@@ -38,7 +48,9 @@ export default function Navbar() {
             🛒 Cart {count > 0 && <b className="badge">{count}</b>}
           </NavLink>
           <NavLink to="/profile" onClick={close}>Profile</NavLink>
-          <Link to="/login" className="btn btn-outline btn-sm" onClick={close}>Log in</Link>
+          {user
+            ? <button className="btn btn-outline btn-sm" onClick={handleLogout}>Log out</button>
+            : <Link to="/login" className="btn btn-outline btn-sm" onClick={close}>Log in</Link>}
         </nav>
       </div>
     </header>
