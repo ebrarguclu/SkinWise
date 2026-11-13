@@ -2,7 +2,7 @@
 jest.mock('../src/config/supabaseClient', () => ({ from: jest.fn() }));
 
 const supabase = require('../src/config/supabaseClient');
-const { createReview } = require('../src/controllers/reviewController');
+const { createReview, getReviewEligibility } = require('../src/controllers/reviewController');
 
 function mockRes() {
   const res = {};
@@ -192,5 +192,116 @@ describe('POST /products/:id/reviews', () => {
       expect(JSON.stringify(res.json.mock.calls)).not.toContain('secret-db-detail');
     }
     expect(console.error).toHaveBeenCalled(); // the real error is logged
+  });
+});
+
+describe('GET /products/:id/reviews/eligibility', () => {
+  // Fakes the three queries: product, delivered order, existing review
+  function mockEligibilityDb({ product = { data: { id: 3 }, error: null },
+                               delivered = { data: [{ id: 10 }], error: null },
+                               existing = { data: null, error: null } } = {}) {
+    const calls = { orderEq: jest.fn(), reviewEq: jest.fn() };
+
+    supabase.from.mockImplementation((table) => {
+      if (table === 'product_catalog') {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(product) }) }) };
+      }
+      if (table === 'order_items') {
+        const chain = {
+          select: () => chain,
+          eq: (...args) => { calls.orderEq(...args); return chain; },
+          limit: () => Promise.resolve(delivered),
+        };
+        return chain;
+      }
+      if (table === 'reviews') {
+        const chain = {
+          select: () => chain,
+          eq: (...args) => { calls.reviewEq(...args); return chain; },
+          maybeSingle: () => Promise.resolve(existing),
+        };
+        return chain;
+      }
+      throw new Error(`unexpected table ${table}`);
+    });
+    return calls;
+  }
+
+  const eligibilityReq = (id = '3', body = {}) => ({ user: { id: 'user-1' }, params: { id }, body });
+
+  test('returns canReview true for a delivered product not reviewed yet', async () => {
+    mockEligibilityDb();
+    const res = mockRes();
+    await getReviewEligibility(eligibilityReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ canReview: true, reason: null });
+  });
+
+  test('returns not_delivered when the user has no delivered order', async () => {
+    mockEligibilityDb({ delivered: { data: [], error: null } });
+    const res = mockRes();
+    await getReviewEligibility(eligibilityReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ canReview: false, reason: 'not_delivered' });
+  });
+
+  test('returns already_reviewed when the user has a review for the product', async () => {
+    mockEligibilityDb({ existing: { data: { id: 7 }, error: null } });
+    const res = mockRes();
+    await getReviewEligibility(eligibilityReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ canReview: false, reason: 'already_reviewed' });
+  });
+
+  test('uses only req.user.id for the order and review checks', async () => {
+    const calls = mockEligibilityDb();
+    await getReviewEligibility(eligibilityReq('3', { user_id: 'someone-else' }), mockRes());
+
+    expect(calls.orderEq).toHaveBeenCalledWith('orders.user_id', 'user-1');
+    expect(calls.orderEq).toHaveBeenCalledWith('orders.status', 'delivered');
+    expect(calls.reviewEq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(calls.reviewEq).toHaveBeenCalledWith('product_id', 3);
+  });
+
+  test('returns 404 for an invalid id without querying', async () => {
+    for (const id of ['abc', '0', '-1', '1.5']) {
+      const res = mockRes();
+      await getReviewEligibility(eligibilityReq(id), res);
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Product not found' });
+    }
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  test('returns 404 for an unknown product', async () => {
+    mockEligibilityDb({ product: { data: null, error: null } });
+    const res = mockRes();
+    await getReviewEligibility(eligibilityReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Product not found' });
+  });
+
+  test('returns a generic 500 and hides the database error text', async () => {
+    const dbError = { message: 'secret-db-detail' };
+    const failures = [
+      { product: { data: null, error: dbError } },
+      { delivered: { data: null, error: dbError } },
+      { existing: { data: null, error: dbError } },
+    ];
+
+    for (const setup of failures) {
+      mockEligibilityDb(setup);
+      const res = mockRes();
+      await getReviewEligibility(eligibilityReq(), res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+      expect(JSON.stringify(res.json.mock.calls)).not.toContain('secret-db-detail');
+    }
+    expect(console.error).toHaveBeenCalled();
   });
 });
