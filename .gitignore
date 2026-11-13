@@ -1,35 +1,29 @@
-# ---------- Dependencies ----------
+# Dependencies
 node_modules/
 
-# ---------- Environment variables / secrets ----------
-# Ignore every .env and .env.* file in any folder...
-.env
-.env.*
-# ...but keep example files tracked (e.g. backend/.env.example)
-!.env.example
-
-# ---------- Build output ----------
+# Build output
 dist/
 build/
-
-# ---------- Test coverage ----------
 coverage/
-.nyc_output/
 
-# ---------- Logs ----------
+# Environment files (keep the example tracked)
+.env
+.env.*
+!.env.example
+
+# Logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# ---------- OS files ----------
+# OS files
 .DS_Store
 Thumbs.db
 
-# ---------- Editor files ----------
-# Ignore everything in .vscode except the shared team settings
-**/.vscode/*
-!**/.vscode/settings.json
-!**/.vscode/extensions.json
+# Editor and tool folders
+.vscode/
 .idea/
+.claude/
+
+# Local team folders
+frontend-backup/
+frontend-new/
