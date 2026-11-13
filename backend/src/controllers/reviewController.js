@@ -9,6 +9,19 @@ function serverError(res, error) {
   return res.status(500).json({ error: 'Internal server error' });
 }
 
+// Delivered-order check: does this user have an order with status
+// 'delivered' that contains this product? Returns { delivered, error }.
+async function hasDeliveredOrder(userId, productId) {
+  const { data, error } = await supabase
+    .from('order_items')
+    .select('id, orders!inner(user_id, status)')
+    .eq('product_id', productId)
+    .eq('orders.user_id', userId)
+    .eq('orders.status', 'delivered')
+    .limit(1);
+  return { delivered: Boolean(data && data.length > 0), error };
+}
+
 // POST /products/:id/reviews  body: { rating: 1-5, comment?: string }
 async function createReview(req, res) {
   const productId = Number(req.params.id);
@@ -40,17 +53,10 @@ async function createReview(req, res) {
   if (productError) return serverError(res, productError);
   if (!product) return res.status(404).json({ error: 'Product not found' });
 
-  // 2) Delivered-order check: does this user have an order with status
-  //    'delivered' that contains this product?
-  const { data: delivered, error: orderError } = await supabase
-    .from('order_items')
-    .select('id, orders!inner(user_id, status)')
-    .eq('product_id', productId)
-    .eq('orders.user_id', userId)
-    .eq('orders.status', 'delivered')
-    .limit(1);
+  // 2) The user must have received this product
+  const { delivered, error: orderError } = await hasDeliveredOrder(userId, productId);
   if (orderError) return serverError(res, orderError);
-  if (!delivered || delivered.length === 0) {
+  if (!delivered) {
     return res.status(403).json({ error: 'Only customers who received this product can review it' });
   }
 
@@ -84,4 +90,40 @@ async function createReview(req, res) {
   });
 }
 
-module.exports = { createReview };
+// GET /products/:id/reviews/eligibility
+// Tells the frontend whether the current user may review this product.
+async function getReviewEligibility(req, res) {
+  const productId = Number(req.params.id);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  // user_id comes only from the token
+  const userId = req.user.id;
+
+  const { data: product, error: productError } = await supabase
+    .from('product_catalog')
+    .select('id')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) return serverError(res, productError);
+  if (!product) return res.status(404).json({ error: 'Product not found' });
+
+  const { delivered, error: orderError } = await hasDeliveredOrder(userId, productId);
+  if (orderError) return serverError(res, orderError);
+  if (!delivered) return res.status(200).json({ canReview: false, reason: 'not_delivered' });
+
+  // One review per user per product
+  const { data: existing, error: reviewError } = await supabase
+    .from('reviews')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+    .maybeSingle();
+  if (reviewError) return serverError(res, reviewError);
+  if (existing) return res.status(200).json({ canReview: false, reason: 'already_reviewed' });
+
+  return res.status(200).json({ canReview: true, reason: null });
+}
+
+module.exports = { createReview, getReviewEligibility };
