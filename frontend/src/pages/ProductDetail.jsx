@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { addToCartMessage } from '../lib/cart.js'
 import EmptyState from '../components/EmptyState.jsx'
+import ReviewForm from '../components/ReviewForm.jsx'
 
 // Missing values (null, undefined, empty text) are shown as "—", never "undefined".
 const show = (value) => (value === null || value === undefined || value === '' ? '—' : value)
@@ -95,7 +96,7 @@ export default function ProductDetail() {
         </button>
         <div className="card pad mt">
           <h3>Reviews</h3>
-          <p className="muted">The ratings and comments section will be added here as part of Mehlika's tasks.</p>
+          <ReviewForm productId={product.id} />
         </div>
       </div>
     </div>
