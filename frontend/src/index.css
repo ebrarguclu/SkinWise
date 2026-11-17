@@ -1,4 +1,7 @@
 /* ========== SkinWise shared design (design tokens) ========== */
+/* Shared component styles (Button, FormField, Loader, ErrorMessage) */
+@import './shared.css';
+
 :root {
   --bg: #faf8f4;
   --surface: #ffffff;
@@ -80,7 +83,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .hero h1 em { color: var(--primary); font-style: italic; } .hero p { color: var(--muted); max-width: 480px; margin: .8rem 0 1.4rem; }
 .hero-art { font-size: clamp(6rem, 18vw, 11rem); text-align: center; }
 .section { margin-top: 2.5rem; }
-.cat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: .8rem; }
+.cat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: .8rem; list-style: none; padding: 0; margin: 0; }
+.cat-grid li { display: flex; } .cat-grid li > .cat-item { flex: 1; }
 .cat-item { display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: 1rem .5rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); font-weight: 500; text-align: center; transition: .15s; }
 .cat-item span { font-size: 1.8rem; } .cat-item:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--primary); }
 .picked { background: var(--soft); border-radius: var(--radius); padding: 1.8rem; text-align: center; }
@@ -137,6 +141,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .stat { display: flex; flex-direction: column; gap: .2rem; } .stat span { font-size: 1.6rem; } .stat strong { font-size: 1.6rem; }
 
 /* ========== Mobile responsive ========== */
+/* Tablet / small laptop: the full menu still fits, but only with less spacing. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .nav-links { gap: .8rem; font-size: .95rem; }
+  .nav-search input { width: 130px; }
+}
 @media (max-width: 960px) {
   .grid { grid-template-columns: repeat(3, 1fr); }
   .cat-grid { grid-template-columns: repeat(3, 1fr); }
@@ -156,7 +165,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
   .admin-side { position: fixed; inset: 0 30% 0 0; z-index: 60; transform: translateX(-100%); transition: .2s; }
   .admin-side.open { transform: none; }
 }
-@media (max-width: 420px) { .grid { grid-template-columns: 1fr; } .cat-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 420px) {
+  .grid { grid-template-columns: 1fr; } .cat-grid { grid-template-columns: repeat(2, 1fr); }
+  /* One card per row: a wider, lower photo keeps the list short enough to scroll. */
+  .product-img { aspect-ratio: 16 / 10; }
+  .footer-grid { gap: 1.2rem; padding: 2rem 0; }
+}
 
 /* Review form (DP-59) */
 .sw-stars { display: inline-flex; gap: .15rem; }
