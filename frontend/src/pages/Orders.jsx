@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PageHeader from '../components/PageHeader.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import { StatusBadge, StatusSteps } from '../components/OrderStatus.jsx'
 import { fetchMyOrders } from '../api/orders.js'
 import { formatPrice } from '../data/products.js'
 import { formatOrderDate, itemCountLabel, lineTotal, ordersErrorMessage, sortNewestFirst } from '../lib/orders.js'
 
 // Order history (Jira DP-53): the user's orders, newest first,
-// each with its date, products and total.
+// each with its date, products and total, and its status (Jira DP-54).
 export default function Orders() {
   const [{ orders, loading, error }, setState] = useState({ orders: [], loading: true, error: null })
 
@@ -54,11 +55,15 @@ export default function Orders() {
           <article key={order.id} className="card pad">
             <div className="row between center wrap gap-s">
               <div>
-                <h3 style={{ margin: 0 }}>Order #{order.id}</h3>
+                <div className="row center gap-s wrap">
+                  <h3 style={{ margin: 0 }}>Order #{order.id}</h3>
+                  <StatusBadge status={order.status} />
+                </div>
                 <small className="muted">{formatOrderDate(order.createdAt)} · {itemCountLabel(order)}</small>
               </div>
               <strong style={{ fontSize: '1.15rem' }}>{formatPrice(order.totalAmount)}</strong>
             </div>
+            <StatusSteps status={order.status} />
             <hr />
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '.6rem' }}>
               {order.items.map((item) => (

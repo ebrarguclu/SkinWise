@@ -34,3 +34,22 @@ export function ordersErrorMessage(error) {
   if (error.status === 401) return 'Your session has expired. Please log in again.'
   return 'Your orders could not be loaded. Please try again later.'
 }
+
+// ---------- Order status (Jira DP-54) ----------
+// The database stores 'in_transit'; the user sees "In transit".
+export const STATUS_STEPS = ['processing', 'in_transit', 'delivered']
+
+const STATUS_INFO = {
+  processing: { label: 'Processing', text: 'We are preparing your order.', color: '#8a6a12', background: '#fbf1d6' },
+  in_transit: { label: 'In transit', text: 'Your order is on its way.', color: '#2d5f86', background: '#e3eef7' },
+  delivered: { label: 'Delivered', text: 'Your order has been delivered.', color: 'var(--primary-dark)', background: 'var(--soft)' },
+  cancelled: { label: 'Cancelled', text: 'This order was cancelled.', color: 'var(--danger)', background: '#f8e3e0' },
+}
+
+// Label, short text and colours for a status. Unknown values are shown as they are.
+export function statusInfo(status) {
+  return STATUS_INFO[status] ?? { label: String(status ?? 'Unknown'), text: '', color: 'var(--muted)', background: 'var(--line)' }
+}
+
+// How far the order has come: 0 = processing, 1 = in transit, 2 = delivered, -1 = not on the path (cancelled/unknown).
+export const statusStepIndex = (status) => STATUS_STEPS.indexOf(status)
