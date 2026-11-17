@@ -125,4 +125,38 @@ async function createOrder(req, res) {
   });
 }
 
-module.exports = { createOrder };
+// GET /orders
+// Order history of the logged-in user: newest first, each order with its date,
+// items (with the price paid) and total.
+async function getMyOrders(req, res) {
+  // user_id comes only from the token: a user can never see someone else's orders
+  const userId = req.user.id;
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, status, total_amount, delivery_address, created_at, '
+      + 'order_items(product_id, quantity, unit_price, products(name, image_url, emoji))')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) return serverError(res, error);
+
+  const orders = (data || []).map((order) => ({
+    id: order.id,
+    status: order.status,
+    totalAmount: Number(order.total_amount),
+    deliveryAddress: order.delivery_address,
+    createdAt: order.created_at,
+    items: (order.order_items || []).map((item) => ({
+      productId: item.product_id,
+      name: item.products ? item.products.name : 'Product no longer available',
+      imageUrl: item.products ? item.products.image_url : null,
+      emoji: item.products ? item.products.emoji : null,
+      quantity: item.quantity,
+      unitPrice: Number(item.unit_price),
+    })),
+  }));
+
+  return res.status(200).json(orders);
+}
+
+module.exports = { createOrder, getMyOrders };
