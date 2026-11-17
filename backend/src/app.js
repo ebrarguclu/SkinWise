@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const productRoutes = require('./routes/productRoutes');
+const authRoutes = require('./routes/authRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 
 const app = express();
@@ -11,6 +12,7 @@ app.use(express.json());   // gelen JSON verisini okuyabilmek için
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/products', productRoutes);
+app.use('/auth', authRoutes);
 app.use('/categories', categoryRoutes);
 
 module.exports = app;

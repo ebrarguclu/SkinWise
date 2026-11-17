@@ -148,6 +148,46 @@ test('GET /products/:id returns 404 for a non-numeric id without querying', asyn
   expect(res.status).toHaveBeenCalledWith(404);
 });
 
+test('GET /products/:id returns 404 for zero, negative, decimal and empty ids without querying', async () => {
+  supabase.from.mockClear();
+
+  for (const bad of ['0', '-5', '1.5', '']) {
+    const res = mockRes();
+    await getProductById({ params: { id: bad } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Product not found' });
+  }
+  expect(supabase.from).not.toHaveBeenCalled();
+});
+
+test('GET /products/:id reads from the product_catalog view and returns all detail fields', async () => {
+  const fullProduct = {
+    id: 3, name: 'Niacinamide 10% Serum', category: 'serum', category_name: 'Serums',
+    model: 'NS10-30', serial_number: 'SW-SE-0001', description: 'A lightweight serum.',
+    price: 17.99, discount_rate: 0, final_price: 17.99, stock: 5,
+    warranty_status: 'No warranty, 30-day satisfaction guarantee',
+    distributor: 'PureLab Europe GmbH', image_url: null,
+  };
+  mockSingleResult({ data: fullProduct, error: null });
+
+  const res = mockRes();
+  await getProductById({ params: { id: '3' } }, res);
+
+  expect(supabase.from).toHaveBeenCalledWith('product_catalog');
+  expect(res.status).toHaveBeenCalledWith(200);
+  expect(res.json).toHaveBeenCalledWith(fullProduct);
+});
+
+test('GET /products/:id 404 response body says "Product not found" for an unknown id', async () => {
+  mockSingleResult({ data: null, error: null });
+
+  const res = mockRes();
+  await getProductById({ params: { id: '999' } }, res);
+
+  expect(res.json).toHaveBeenCalledWith({ error: 'Product not found' });
+});
+
 test('GET /products/:id returns 500 when the database fails', async () => {
   mockSingleResult({ data: null, error: { message: 'DB down' } });
 
