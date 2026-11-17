@@ -3,6 +3,7 @@ const cors = require('cors');
 const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 
 const app = express();
 app.use(cors());           // frontend'den gelen isteklere izin ver
@@ -14,5 +15,6 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/products', productRoutes);
 app.use('/auth', authRoutes);
 app.use('/categories', categoryRoutes);
+app.use('/orders', orderRoutes);
 
 module.exports = app;
