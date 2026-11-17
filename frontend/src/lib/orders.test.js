@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
-  formatOrderDate, itemCount, itemCountLabel, lineTotal, ordersErrorMessage, sortNewestFirst,
+  formatOrderDate, itemCount, itemCountLabel, lineTotal, ordersErrorMessage, sortNewestFirst, statusInfo, statusStepIndex,
 } from './orders.js'
 
 const order = (id, createdAt, items = []) => ({ id, createdAt, items })
@@ -84,5 +84,44 @@ describe('ordersErrorMessage', () => {
 
   test('says the server could not be reached for a network error', () => {
     expect(ordersErrorMessage(new TypeError('Failed to fetch'))).toMatch(/could not reach/i)
+  })
+})
+
+describe('statusInfo', () => {
+  test('has a label for each step of an order', () => {
+    expect(statusInfo('processing').label).toBe('Processing')
+    expect(statusInfo('in_transit').label).toBe('In transit')
+    expect(statusInfo('delivered').label).toBe('Delivered')
+  })
+
+  test('shows the database value "in_transit" as "In transit"', () => {
+    expect(statusInfo('in_transit').label).not.toContain('_')
+  })
+
+  test('gives every status its own colour', () => {
+    const colours = ['processing', 'in_transit', 'delivered', 'cancelled'].map((s) => statusInfo(s).background)
+    expect(new Set(colours).size).toBe(4)
+  })
+
+  test('has a label for a cancelled order', () => {
+    expect(statusInfo('cancelled').label).toBe('Cancelled')
+  })
+
+  test('shows an unknown status as it is instead of breaking', () => {
+    expect(statusInfo('returned').label).toBe('returned')
+    expect(statusInfo(undefined).label).toBe('Unknown')
+  })
+})
+
+describe('statusStepIndex', () => {
+  test('follows processing → in transit → delivered', () => {
+    expect(statusStepIndex('processing')).toBe(0)
+    expect(statusStepIndex('in_transit')).toBe(1)
+    expect(statusStepIndex('delivered')).toBe(2)
+  })
+
+  test('is -1 for statuses that are not on the delivery path', () => {
+    expect(statusStepIndex('cancelled')).toBe(-1)
+    expect(statusStepIndex(undefined)).toBe(-1)
   })
 })
