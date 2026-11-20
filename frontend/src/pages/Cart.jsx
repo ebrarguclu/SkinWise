@@ -6,9 +6,17 @@ import PageHeader from '../components/PageHeader.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 
 export default function Cart() {
-  const { items, setQty, remove, total, ready, updating } = useCart()
+  const { items, setQty, remove, total, ready, updating, loggedIn } = useCart()
   const toast = useToast()
   const navigate = useNavigate()
+
+  // Requirement 4: anyone can fill a cart, but placing an order needs an account.
+  // After logging in the user comes back to checkout and the cart is kept.
+  const checkout = () => {
+    if (loggedIn) return navigate('/checkout')
+    toast.info('Please log in to place your order. Your cart will be kept.')
+    navigate('/login', { state: { from: '/checkout' } })
+  }
 
   if (!ready) return <p className="muted">Loading your cart…</p>
 
@@ -45,7 +53,8 @@ export default function Cart() {
           <div className="row between"><span>Shipping</span><span>Free</span></div>
           <hr />
           <div className="row between"><strong>Total</strong><strong>{formatPrice(total)}</strong></div>
-          <button className="btn btn-primary btn-block" onClick={() => navigate('/checkout')} disabled={updating}>Proceed to checkout</button>
+          <button className="btn btn-primary btn-block" onClick={checkout} disabled={updating}>Proceed to checkout</button>
+          {!loggedIn && <p className="muted center-text">You'll be asked to log in before paying.</p>}
         </aside>
       </div>
     </>
