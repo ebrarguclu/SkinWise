@@ -21,7 +21,7 @@ function fakeStorage(initial = {}) {
 describe('addItem', () => {
   test('adds a new product with quantity 1', () => {
     const { items, added, reason } = addItem([], serum)
-    expect(items).toEqual([{ id: 3, name: serum.name, price: 17.99, emoji: '✨', stock: 5, qty: 1 }])
+    expect(items).toEqual([{ id: 3, name: serum.name, price: 17.99, emoji: '✨', imageUrl: null, stock: 5, qty: 1 }])
     expect(added).toBe(1)
     expect(reason).toBeNull()
   })
@@ -175,5 +175,56 @@ describe('addToCartMessage', () => {
   test('tells the user when the whole stock is already in the cart', () => {
     expect(addToCartMessage(serum, { added: 0, reason: 'stock_limit' }).text)
       .toBe('You already have all 5 in your cart')
+  })
+})
+
+describe('product photo in the cart (DP-46)', () => {
+  test('the guest cart keeps the product photo from the catalog', () => {
+    const { items } = addItem([], { ...serum, image_url: 'https://cdn/serum.jpg' })
+    expect(items[0].imageUrl).toBe('https://cdn/serum.jpg')
+  })
+
+  test('a product without a photo has imageUrl null, so the emoji is shown', () => {
+    expect(addItem([], serum).items[0].imageUrl).toBeNull()
+  })
+})
+
+describe('saved cart helpers (Sprint 2)', () => {
+  test('fromServerItems turns backend lines into the lines the cart pages use', async () => {
+    const { fromServerItems } = await import('./cart.js')
+    expect(fromServerItems([
+      { productId: 3, name: 'Serum', emoji: '✨', imageUrl: 'a.jpg', price: '17.99', stock: 5, quantity: 2 },
+    ])).toEqual([{ id: 3, name: 'Serum', emoji: '✨', imageUrl: 'a.jpg', price: 17.99, stock: 5, qty: 2 }])
+    expect(fromServerItems()).toEqual([])
+  })
+
+  test('toMergeItems sends only product id and quantity of the guest cart', async () => {
+    const { toMergeItems } = await import('./cart.js')
+    const guest = addItem(addItem([], serum, 2).items, cream).items
+    expect(toMergeItems(guest)).toEqual([{ productId: 3, quantity: 2 }, { productId: 2, quantity: 1 }])
+  })
+
+  test('a guest cart survives the round trip to the backend and back', async () => {
+    const { fromServerItems, toMergeItems } = await import('./cart.js')
+    const guest = addItem([], serum, 2).items
+    const backend = toMergeItems(guest).map((l) => ({ ...l, name: serum.name, emoji: serum.emoji, price: serum.price, stock: serum.stock, imageUrl: null }))
+    expect(fromServerItems(backend)[0]).toMatchObject({ id: 3, qty: 2, price: 17.99, stock: 5 })
+  })
+
+  test('mergeMessage says nothing when the whole guest cart was kept', async () => {
+    const { mergeMessage } = await import('./cart.js')
+    expect(mergeMessage([])).toBeNull()
+    expect(mergeMessage()).toBeNull()
+  })
+
+  test('mergeMessage explains reduced and unavailable products', async () => {
+    const { mergeMessage } = await import('./cart.js')
+    expect(mergeMessage([{ productId: 1, requested: 4, quantity: 3, reason: 'stock_limit' }]))
+      .toBe('Your cart was saved, but 1 item was reduced to the stock left.')
+    expect(mergeMessage([
+      { productId: 1, requested: 4, quantity: 3, reason: 'stock_limit' },
+      { productId: 2, requested: 1, quantity: 0, reason: 'out_of_stock' },
+      { productId: 5, requested: 1, quantity: 0, reason: 'unavailable' },
+    ])).toBe('Your cart was saved, but 1 item was reduced to the stock left and 2 items are no longer available.')
   })
 })

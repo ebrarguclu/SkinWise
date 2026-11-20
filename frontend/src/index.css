@@ -108,7 +108,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 /* Cart */
 .cart-layout { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start; }
 .cart-row { display: flex; align-items: center; gap: 1rem; padding: .9rem 1rem; }
-.cart-emoji { font-size: 2rem; background: var(--soft); border-radius: 12px; width: 56px; height: 56px; display: grid; place-items: center; }
+.cart-emoji { font-size: 2rem; background: var(--soft); border-radius: 12px; width: 56px; height: 56px; display: grid; place-items: center; overflow: hidden; flex-shrink: 0; }
+.cart-emoji img { width: 100%; height: 100%; object-fit: cover; }
 .qty { display: flex; align-items: center; gap: .6rem; } .qty button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: #fff; cursor: pointer; }
 .qty button:disabled { opacity: .4; cursor: not-allowed; }
 .summary { display: flex; flex-direction: column; gap: .6rem; position: sticky; top: 80px; }
