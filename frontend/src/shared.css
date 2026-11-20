@@ -1,0 +1,39 @@
+/* ========== SkinWise shared components ==========
+   Styles for Button, FormField, Loader and ErrorMessage (src/components).
+   Colours come from the tokens in index.css, so every page looks the same.
+   Use the React components instead of copying these classes by hand. */
+
+/* ---- Button extras (base .btn, .btn-primary, .btn-outline live in index.css) ---- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #a23a30; }
+.btn-ghost { background: transparent; color: var(--primary); }
+.btn-ghost:hover { background: var(--soft); }
+.btn[aria-busy='true'] { cursor: progress; }
+
+/* ---- Form field ---- */
+.field { display: flex; flex-direction: column; gap: .3rem; }
+.field-label { display: block; font-weight: 500; font-size: .92rem; } /* not column like the global label rule */
+.field-required { color: var(--danger); margin-left: .15rem; }
+.field-hint { color: var(--muted); font-size: .82rem; }
+.field-error { color: var(--danger); font-size: .82rem; font-weight: 500; margin: 0; }
+.field input[aria-invalid='true'],
+.field select[aria-invalid='true'],
+.field textarea[aria-invalid='true'] { border-color: var(--danger); }
+
+/* ---- Loader ---- */
+.loader { display: flex; align-items: center; justify-content: center; gap: .7rem; padding: 2rem 1rem; color: var(--muted); }
+.loader-inline { display: inline-flex; padding: 0; }
+.spinner { width: 1.6rem; height: 1.6rem; border: 3px solid var(--soft); border-top-color: var(--primary); border-radius: 50%; animation: sw-spin .8s linear infinite; flex-shrink: 0; }
+.spinner-sm { width: 1rem; height: 1rem; border-width: 2px; }
+.btn .spinner { border-color: rgba(255, 255, 255, .45); border-top-color: currentColor; }
+@keyframes sw-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+/* ---- Error message ---- */
+.error-box { display: flex; gap: .8rem; align-items: flex-start; padding: 1rem 1.2rem; background: #fbeceb; border: 1px solid #f0c9c5; border-left: 4px solid var(--danger); border-radius: var(--radius); color: var(--text); }
+.error-box-icon { font-size: 1.3rem; line-height: 1.3; }
+.error-box-body { flex: 1; display: flex; flex-direction: column; gap: .2rem; }
+.error-box-body strong { color: var(--danger); }
+.error-box-body p { margin: 0; color: var(--muted); }
+.error-box .btn { align-self: flex-start; margin-top: .5rem; }
