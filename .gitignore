@@ -5,3 +5,5 @@ dist/
 !.env.example
 frontend-backup/
 frontend-new/
+.claude/
+.vscode/
