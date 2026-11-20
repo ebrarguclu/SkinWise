@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import {
-  MAX_COMMENT_LENGTH, cleanComment, notAllowedMessage, reviewErrorMessage, successMessage, validateReview,
+  MAX_COMMENT_LENGTH, cardRating, cleanComment, formatReviewDate, notAllowedMessage,
+  ratingCountLabel, ratingSummary, reviewErrorMessage, successMessage, validateReview,
 } from './review.js'
 
 describe('validateReview', () => {
@@ -92,5 +93,58 @@ describe('notAllowedMessage', () => {
 
   test('falls back to the not-delivered message for an unknown reason', () => {
     expect(notAllowedMessage('something_else')).toMatch(/received/i)
+  })
+})
+
+describe('ratingCountLabel', () => {
+  test('says "No reviews yet" when there are no ratings', () => {
+    for (const count of [0, null, undefined, '0']) {
+      expect(ratingCountLabel(count)).toBe('No reviews yet')
+    }
+  })
+
+  test('uses the singular for one rating and the plural otherwise', () => {
+    expect(ratingCountLabel(1)).toBe('1 rating')
+    expect(ratingCountLabel(12)).toBe('12 ratings')
+  })
+})
+
+describe('ratingSummary', () => {
+  test('shows the average and the number of ratings', () => {
+    expect(ratingSummary(4.5, 12)).toBe('4.5 · 12 ratings')
+    expect(ratingSummary(4.5, 1)).toBe('4.5 · 1 rating')
+  })
+
+  test('always shows one decimal', () => {
+    expect(ratingSummary(5, 3)).toBe('5.0 · 3 ratings')
+  })
+
+  test('shows "No reviews yet" instead of a zero rating', () => {
+    expect(ratingSummary(0, 0)).toBe('No reviews yet')
+    expect(ratingSummary(undefined, undefined)).toBe('No reviews yet')
+  })
+})
+
+describe('cardRating', () => {
+  test('shows a star, the average and the count', () => {
+    expect(cardRating(4.5, 12)).toBe('★ 4.5 (12)')
+    expect(cardRating(3, 1)).toBe('★ 3.0 (1)')
+  })
+
+  test('shows "No reviews yet" when nobody has rated the product', () => {
+    expect(cardRating(0, 0)).toBe('No reviews yet')
+    expect(cardRating(null, null)).toBe('No reviews yet')
+  })
+})
+
+describe('formatReviewDate', () => {
+  test('formats an ISO date', () => {
+    expect(formatReviewDate('2026-11-18T10:00:00Z')).toBe('Nov 18, 2026')
+  })
+
+  test('returns an empty string for a missing or invalid date', () => {
+    expect(formatReviewDate(undefined)).toBe('')
+    expect(formatReviewDate('')).toBe('')
+    expect(formatReviewDate('not a date')).toBe('')
   })
 })

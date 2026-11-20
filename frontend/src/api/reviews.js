@@ -11,3 +11,7 @@ export const createReview = (productId, { rating, comment }) =>
     auth: true,
     body: { rating, comment },
   })
+
+// GET /products/:id/reviews (public) -> [{ id, rating, comment, author, createdAt }]
+export const fetchReviews = (productId) =>
+  request(`/products/${encodeURIComponent(productId)}/reviews`)

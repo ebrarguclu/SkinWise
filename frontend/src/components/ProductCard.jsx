@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { addToCartMessage } from '../lib/cart.js'
 import { stockLabel } from '../lib/stock.js'
+import { cardRating } from '../lib/review.js'
 
 export default function ProductCard({ product }) {
   const { add } = useCart()
@@ -32,7 +33,7 @@ export default function ProductCard({ product }) {
         </div>
         <div className="row between center">
           <strong>{formatPrice(product.price)}</strong>
-          <span className="muted">★ {product.rating}</span>
+          <span className="muted">{cardRating(product.rating, product.review_count)}</span>
         </div>
         <small className={soldOut ? 'stock out' : 'stock'}>{stockLabel(product.stock)}</small>
         <button className="btn btn-primary btn-block" disabled={soldOut} onClick={handleAdd}>
