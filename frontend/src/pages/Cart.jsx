@@ -30,7 +30,10 @@ export default function Cart() {
         <div className="stack">
           {items.map((i) => (
             <div key={i.id} className="card cart-row">
-              <div className="cart-emoji">{i.emoji}</div>
+              {/* Product photo; the emoji is shown until a photo is uploaded */}
+              <Link to={`/products/${i.id}`} className="cart-emoji" aria-label={i.name}>
+                {i.imageUrl ? <img src={i.imageUrl} alt={i.name} loading="lazy" /> : i.emoji}
+              </Link>
               <div className="grow">
                 <Link to={`/products/${i.id}`} className="product-name">{i.name}</Link>
                 <div className="muted">{formatPrice(i.price)}{i.qty >= i.stock && ` · only ${i.stock} in stock`}</div>

@@ -21,7 +21,7 @@ function fakeStorage(initial = {}) {
 describe('addItem', () => {
   test('adds a new product with quantity 1', () => {
     const { items, added, reason } = addItem([], serum)
-    expect(items).toEqual([{ id: 3, name: serum.name, price: 17.99, emoji: '✨', stock: 5, qty: 1 }])
+    expect(items).toEqual([{ id: 3, name: serum.name, price: 17.99, emoji: '✨', imageUrl: null, stock: 5, qty: 1 }])
     expect(added).toBe(1)
     expect(reason).toBeNull()
   })
@@ -175,6 +175,17 @@ describe('addToCartMessage', () => {
   test('tells the user when the whole stock is already in the cart', () => {
     expect(addToCartMessage(serum, { added: 0, reason: 'stock_limit' }).text)
       .toBe('You already have all 5 in your cart')
+  })
+})
+
+describe('product photo in the cart (DP-46)', () => {
+  test('the guest cart keeps the product photo from the catalog', () => {
+    const { items } = addItem([], { ...serum, image_url: 'https://cdn/serum.jpg' })
+    expect(items[0].imageUrl).toBe('https://cdn/serum.jpg')
+  })
+
+  test('a product without a photo has imageUrl null, so the emoji is shown', () => {
+    expect(addItem([], serum).items[0].imageUrl).toBeNull()
   })
 })
 

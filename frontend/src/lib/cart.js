@@ -34,6 +34,7 @@ const toCartItem = (product, qty) => ({
   name: product.name,
   price: Number(product.price),
   emoji: product.emoji,
+  imageUrl: product.image_url || product.imageUrl || null, // photo shown on the cart page
   stock: product.stock,
   qty,
 })
