@@ -1,7 +1,3 @@
-// Fake shared client instead of the real database
-jest.mock('../src/config/supabaseClient', () => ({ from: jest.fn() }));
-
-const supabase = require('../src/config/supabaseClient');
 const {
   getCart, addToCart, updateCartItem, removeCartItem, mergeCart,
 } = require('../src/controllers/cartController');
@@ -21,13 +17,15 @@ const CATALOG = [
 
 // A tiny in-memory version of the two tables the cart uses.
 // It understands the same query chains the controller sends.
+// The controller gets it as req.supabase, like the logged-in user's client.
+let client;
 function fakeDb({ cart = [], fail = null } = {}) {
   const tables = {
     product_catalog: CATALOG.map((p) => ({ ...p })),
     cart_items: cart.map((r) => ({ ...r })),
   };
 
-  supabase.from.mockImplementation((table) => {
+  client = { from: jest.fn((table) => {
     const filters = [];
     let op = 'select';
     let rows = null;
@@ -61,17 +59,17 @@ function fakeDb({ cart = [], fail = null } = {}) {
       then: (resolve, reject) => run().then(resolve, reject),
     };
     return query;
-  });
+  }) };
   return tables;
 }
 
-const req = ({ body = {}, params = {}, userId = 'user-1' } = {}) => ({ user: { id: userId }, body, params });
+const req = ({ body = {}, params = {}, userId = 'user-1' } = {}) => ({ user: { id: userId }, supabase: client, body, params });
 const lines = (tables, userId = 'user-1') => tables.cart_items
   .filter((r) => r.user_id === userId)
   .map((r) => [r.product_id, r.quantity]);
 
 beforeEach(() => {
-  supabase.from.mockReset();
+  client = null;
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => jest.restoreAllMocks());
@@ -222,6 +220,15 @@ describe('DELETE /cart/:productId', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(lines(tables)).toEqual([[2, 1]]);
     expect(lines(tables, 'user-2')).toEqual([[1, 1]]);
+  });
+});
+
+describe('runs as the logged-in user', () => {
+  test('every query goes through req.supabase, so the cart_items RLS policies apply', async () => {
+    fakeDb({ cart: [{ user_id: 'user-1', product_id: 1, quantity: 1 }] });
+    await getCart(req(), mockRes());
+    expect(client.from).toHaveBeenCalledWith('cart_items');
+    expect(client.from).toHaveBeenCalledWith('product_catalog');
   });
 });
 
