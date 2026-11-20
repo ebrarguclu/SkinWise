@@ -177,3 +177,43 @@ describe('addToCartMessage', () => {
       .toBe('You already have all 5 in your cart')
   })
 })
+
+describe('saved cart helpers (Sprint 2)', () => {
+  test('fromServerItems turns backend lines into the lines the cart pages use', async () => {
+    const { fromServerItems } = await import('./cart.js')
+    expect(fromServerItems([
+      { productId: 3, name: 'Serum', emoji: '✨', imageUrl: 'a.jpg', price: '17.99', stock: 5, quantity: 2 },
+    ])).toEqual([{ id: 3, name: 'Serum', emoji: '✨', imageUrl: 'a.jpg', price: 17.99, stock: 5, qty: 2 }])
+    expect(fromServerItems()).toEqual([])
+  })
+
+  test('toMergeItems sends only product id and quantity of the guest cart', async () => {
+    const { toMergeItems } = await import('./cart.js')
+    const guest = addItem(addItem([], serum, 2).items, cream).items
+    expect(toMergeItems(guest)).toEqual([{ productId: 3, quantity: 2 }, { productId: 2, quantity: 1 }])
+  })
+
+  test('a guest cart survives the round trip to the backend and back', async () => {
+    const { fromServerItems, toMergeItems } = await import('./cart.js')
+    const guest = addItem([], serum, 2).items
+    const backend = toMergeItems(guest).map((l) => ({ ...l, name: serum.name, emoji: serum.emoji, price: serum.price, stock: serum.stock, imageUrl: null }))
+    expect(fromServerItems(backend)[0]).toMatchObject({ id: 3, qty: 2, price: 17.99, stock: 5 })
+  })
+
+  test('mergeMessage says nothing when the whole guest cart was kept', async () => {
+    const { mergeMessage } = await import('./cart.js')
+    expect(mergeMessage([])).toBeNull()
+    expect(mergeMessage()).toBeNull()
+  })
+
+  test('mergeMessage explains reduced and unavailable products', async () => {
+    const { mergeMessage } = await import('./cart.js')
+    expect(mergeMessage([{ productId: 1, requested: 4, quantity: 3, reason: 'stock_limit' }]))
+      .toBe('Your cart was saved, but 1 item was reduced to the stock left.')
+    expect(mergeMessage([
+      { productId: 1, requested: 4, quantity: 3, reason: 'stock_limit' },
+      { productId: 2, requested: 1, quantity: 0, reason: 'out_of_stock' },
+      { productId: 5, requested: 1, quantity: 0, reason: 'unavailable' },
+    ])).toBe('Your cart was saved, but 1 item was reduced to the stock left and 2 items are no longer available.')
+  })
+})

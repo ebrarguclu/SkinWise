@@ -10,9 +10,13 @@ export default function ProductCard({ product }) {
   const toast = useToast()
   const soldOut = product.stock === 0
 
-  const handleAdd = () => {
-    const { type, text } = addToCartMessage(product, add(product))
-    toast[type](text)
+  const handleAdd = async () => {
+    try {
+      const { type, text } = addToCartMessage(product, await add(product))
+      toast[type](text)
+    } catch {
+      toast.error('Could not add to cart. Please try again.')
+    }
   }
 
   return (

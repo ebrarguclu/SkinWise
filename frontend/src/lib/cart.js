@@ -83,3 +83,34 @@ export function addToCartMessage(product, { added, reason }) {
   if (reason === 'stock_limit') return { type: 'info', text: `Only ${added} more could be added (${product.stock} in stock)` }
   return { type: 'success', text: `${product.name} added to cart` }
 }
+
+// ---------------------------------------------------------------------------
+// Saved cart of a logged-in user (Sprint 2). The backend keeps it in cart_items;
+// these helpers convert between its format and the one the cart pages use.
+
+// Backend line { productId, quantity, ... } -> page line { id, qty, ... }
+export const fromServerItems = (items = []) =>
+  items.map((i) => ({
+    id: i.productId,
+    name: i.name,
+    price: Number(i.price),
+    emoji: i.emoji,
+    imageUrl: i.imageUrl,
+    stock: i.stock,
+    qty: i.quantity,
+  }))
+
+// Guest cart -> what POST /cart/merge expects
+export const toMergeItems = (items = []) =>
+  items.map((i) => ({ productId: i.id, quantity: i.qty }))
+
+// Toast after login when part of the guest cart could not be kept
+export function mergeMessage(adjusted = []) {
+  if (adjusted.length === 0) return null
+  const gone = adjusted.filter((a) => a.quantity === 0).length
+  const fewer = adjusted.length - gone
+  const parts = []
+  if (fewer) parts.push(`${fewer} ${fewer === 1 ? 'item was' : 'items were'} reduced to the stock left`)
+  if (gone) parts.push(`${gone} ${gone === 1 ? 'item is' : 'items are'} no longer available`)
+  return `Your cart was saved, but ${parts.join(' and ')}.`
+}
