@@ -35,7 +35,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-        <Route path="/orders" element={<Orders />} />
+        <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="*" element={<NotFound />} />
       </Route>
