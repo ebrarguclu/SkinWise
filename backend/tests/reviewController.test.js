@@ -2,7 +2,7 @@
 jest.mock('../src/config/supabaseClient', () => ({ from: jest.fn() }));
 
 const supabase = require('../src/config/supabaseClient');
-const { createReview, getReviewEligibility } = require('../src/controllers/reviewController');
+const { createReview, getReviewEligibility, listReviews, displayName } = require('../src/controllers/reviewController');
 
 function mockRes() {
   const res = {};
@@ -303,5 +303,173 @@ describe('GET /products/:id/reviews/eligibility', () => {
       expect(JSON.stringify(res.json.mock.calls)).not.toContain('secret-db-detail');
     }
     expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe('GET /products/:id/reviews', () => {
+  const listReq = (id = '3') => ({ params: { id } });
+
+  // Fakes the product lookup and the reviews query. Records every chained call.
+  function mockListDb({ product = { data: { id: 3 }, error: null },
+                        reviews = { data: [], error: null } } = {}) {
+    const calls = { select: jest.fn(), eq: jest.fn(), not: jest.fn(), neq: jest.fn(),
+                    order: jest.fn(), limit: jest.fn() };
+
+    supabase.from.mockImplementation((table) => {
+      if (table === 'product_catalog') {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(product) }) }) };
+      }
+      if (table === 'reviews') {
+        const chain = {
+          select: (...a) => { calls.select(...a); return chain; },
+          eq: (...a) => { calls.eq(...a); return chain; },
+          not: (...a) => { calls.not(...a); return chain; },
+          neq: (...a) => { calls.neq(...a); return chain; },
+          order: (...a) => { calls.order(...a); return chain; },
+          limit: (...a) => { calls.limit(...a); return Promise.resolve(reviews); },
+        };
+        return chain;
+      }
+      throw new Error(`unexpected table ${table}`);
+    });
+    return calls;
+  }
+
+  const row = (over = {}) => ({
+    id: 12, rating: 5, comment: 'Great serum', created_at: '2026-11-18T10:00:00Z',
+    profiles: { full_name: 'Ada Yilmaz' }, ...over,
+  });
+
+  test('returns approved comments with a short author name', async () => {
+    mockListDb({ reviews: { data: [row()], error: null } });
+    const res = mockRes();
+    await listReviews(listReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith([
+      { id: 12, rating: 5, comment: 'Great serum', author: 'Ada Y.', createdAt: '2026-11-18T10:00:00Z' },
+    ]);
+  });
+
+  test('asks only for approved, non-empty comments, newest first, max 50', async () => {
+    const calls = mockListDb();
+    await listReviews(listReq(), mockRes());
+
+    expect(calls.eq).toHaveBeenCalledWith('product_id', 3);
+    expect(calls.eq).toHaveBeenCalledWith('comment_status', 'approved');
+    expect(calls.not).toHaveBeenCalledWith('comment', 'is', null);
+    expect(calls.neq).toHaveBeenCalledWith('comment', '');
+    expect(calls.order).toHaveBeenNthCalledWith(1, 'created_at', { ascending: false });
+    expect(calls.order).toHaveBeenNthCalledWith(2, 'id', { ascending: false });
+    expect(calls.limit).toHaveBeenCalledWith(50);
+  });
+
+  test('reads only full_name from profiles', async () => {
+    const calls = mockListDb();
+    await listReviews(listReq(), mockRes());
+
+    const selected = calls.select.mock.calls[0][0];
+    expect(selected).toContain('profiles(full_name)');
+    for (const secret of ['user_id', 'email', 'tax_id', 'address']) {
+      expect(selected).not.toContain(secret);
+    }
+  });
+
+  test('never returns user_id, email, tax_id or address', async () => {
+    const leaky = row({
+      user_id: 'user-1',
+      profiles: { full_name: 'Ada Yilmaz', email: 'ada@example.test', tax_id: '123', address: 'Istanbul' },
+    });
+    mockListDb({ reviews: { data: [leaky], error: null } });
+    const res = mockRes();
+    await listReviews(listReq(), res);
+
+    const [list] = res.json.mock.calls[0];
+    expect(Object.keys(list[0]).sort()).toEqual(['author', 'comment', 'createdAt', 'id', 'rating']);
+    expect(JSON.stringify(list)).not.toMatch(/user-1|ada@example|123|Istanbul|Yilmaz/);
+  });
+
+  test('works when profiles comes back as a list', async () => {
+    mockListDb({ reviews: { data: [row({ profiles: [{ full_name: 'Ada Yilmaz' }] })], error: null } });
+    const res = mockRes();
+    await listReviews(listReq(), res);
+    expect(res.json.mock.calls[0][0][0].author).toBe('Ada Y.');
+  });
+
+  test('uses "Anonymous customer" when the profile or name is missing', async () => {
+    mockListDb({ reviews: { data: [row({ profiles: null }), row({ id: 13, profiles: { full_name: '' } })], error: null } });
+    const res = mockRes();
+    await listReviews(listReq(), res);
+    expect(res.json.mock.calls[0][0].map((r) => r.author)).toEqual(['Anonymous customer', 'Anonymous customer']);
+  });
+
+  test('returns an empty list when there are no approved comments', async () => {
+    mockListDb({ reviews: { data: [], error: null } });
+    const res = mockRes();
+    await listReviews(listReq(), res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith([]);
+  });
+
+  test('returns 404 for an invalid id without querying', async () => {
+    for (const id of ['abc', '0', '-1', '1.5']) {
+      const res = mockRes();
+      await listReviews(listReq(id), res);
+      expect(res.status).toHaveBeenCalledWith(404);
+    }
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  test('returns 404 for an unknown product', async () => {
+    mockListDb({ product: { data: null, error: null } });
+    const res = mockRes();
+    await listReviews(listReq(), res);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Product not found' });
+  });
+
+  test('returns a generic 500 and hides the database error text', async () => {
+    const dbError = { message: 'secret-db-detail' };
+    for (const setup of [{ product: { data: null, error: dbError } }, { reviews: { data: null, error: dbError } }]) {
+      mockListDb(setup);
+      const res = mockRes();
+      await listReviews(listReq(), res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Internal server error' });
+      expect(JSON.stringify(res.json.mock.calls)).not.toContain('secret-db-detail');
+    }
+    expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe('displayName', () => {
+  test('shows the first name and the last initial', () => {
+    expect(displayName('Ada Yilmaz')).toBe('Ada Y.');
+  });
+
+  test('trims and collapses extra spaces', () => {
+    expect(displayName('  Ada    Yilmaz  ')).toBe('Ada Y.');
+  });
+
+  test('uses the last word for the initial when there are several names', () => {
+    expect(displayName('Ada Maria Yilmaz')).toBe('Ada Y.');
+  });
+
+  test('uppercases with Turkish rules', () => {
+    expect(displayName('İdil Sunar')).toBe('İdil S.');
+    expect(displayName('Ece ışık')).toBe('Ece I.');
+    expect(displayName('Ece iplik')).toBe('Ece İ.');
+  });
+
+  test('keeps a single name as it is', () => {
+    expect(displayName('Ada')).toBe('Ada');
+    expect(displayName('  Ada  ')).toBe('Ada');
+  });
+
+  test('returns "Anonymous customer" for an empty or missing name', () => {
+    for (const name of ['', '   ', null, undefined]) {
+      expect(displayName(name)).toBe('Anonymous customer');
+    }
   });
 });

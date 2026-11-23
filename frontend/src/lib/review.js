@@ -29,6 +29,33 @@ export function reviewErrorMessage(error) {
 export const successMessage = (comment) =>
   cleanComment(comment) ? 'Your comment is waiting for approval' : 'Thanks, your rating was saved'
 
+// "No ratings", "1 rating", "12 ratings". Every review counts as a rating,
+// even when it has no comment, so this number can be bigger than the comment list.
+export function ratingCountLabel(count) {
+  const n = Number(count) || 0
+  if (n <= 0) return 'No reviews yet'
+  return n === 1 ? '1 rating' : `${n} ratings`
+}
+
+// Product page: "4.5 · 12 ratings", or "No reviews yet".
+export function ratingSummary(rating, count) {
+  if (!(Number(count) > 0)) return 'No reviews yet'
+  return `${Number(rating).toFixed(1)} · ${ratingCountLabel(count)}`
+}
+
+// Product card: "★ 4.5 (12)", or "No reviews yet".
+export function cardRating(rating, count) {
+  if (!(Number(count) > 0)) return 'No reviews yet'
+  return `★ ${Number(rating).toFixed(1)} (${Number(count)})`
+}
+
+// "Nov 18, 2026". Returns '' for a missing or invalid date.
+export function formatReviewDate(value) {
+  const date = new Date(value)
+  if (!value || Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
 // Messages for the "not allowed" reasons of GET /products/:id/reviews/eligibility.
 const NOT_ALLOWED = {
   not_delivered: 'Only customers who received this product can review it.',

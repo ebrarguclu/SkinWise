@@ -7,6 +7,9 @@ import { useToast } from '../context/ToastContext.jsx'
 import { addToCartMessage } from '../lib/cart.js'
 import EmptyState from '../components/EmptyState.jsx'
 import ReviewForm from '../components/ReviewForm.jsx'
+import ReviewList from '../components/ReviewList.jsx'
+import StarDisplay from '../components/StarDisplay.jsx'
+import { ratingSummary } from '../lib/review.js'
 
 // Missing values (null, undefined, empty text) are shown as "—", never "undefined".
 const show = (value) => (value === null || value === undefined || value === '' ? '—' : value)
@@ -66,8 +69,10 @@ export default function ProductDetail() {
         <Link to="/products" className="link">← Back to shop</Link>
         <small className="muted block">{show(product.brand)} · {show(category)}</small>
         <h1>{product.name}</h1>
-        <p className="muted">
-          ★ {show(product.rating)}{product.skin ? ` · Suitable for ${product.skin.toLowerCase()} skin` : ''}
+        <p className="muted sw-rating-line">
+          {Number(product.review_count) > 0 && <StarDisplay value={product.rating} />}
+          <span>{ratingSummary(product.rating, product.review_count)}</span>
+          {product.skin && <span>· Suitable for {product.skin.toLowerCase()} skin</span>}
         </p>
         <div className="row gap-s wrap">{(product.badges ?? []).map((b) => <span key={b} className="tag">{b}</span>)}</div>
         <p>{show(product.description)}</p>
@@ -103,6 +108,8 @@ export default function ProductDetail() {
         </button>
         <div className="card pad mt">
           <h3>Reviews</h3>
+          <ReviewList productId={product.id} />
+          <hr />
           <ReviewForm productId={product.id} />
         </div>
       </div>

@@ -3,6 +3,7 @@
 const supabase = require('../config/supabaseClient');
 
 const MAX_COMMENT_LENGTH = 1000;
+const MAX_LISTED_REVIEWS = 50;
 
 function serverError(res, error) {
   console.error('Review error:', error);
@@ -126,4 +127,56 @@ async function getReviewEligibility(req, res) {
   return res.status(200).json({ canReview: true, reason: null });
 }
 
-module.exports = { createReview, getReviewEligibility };
+// Public name for a review: "Ada Y." (first name + last initial).
+// Extra spaces are collapsed; a single name stays as is; no name -> "Anonymous customer".
+function displayName(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'Anonymous customer';
+  if (parts.length === 1) return parts[0];
+  const initial = [...parts[parts.length - 1]][0].toLocaleUpperCase('tr'); // Turkish i -> İ
+  return `${parts[0]} ${initial}.`;
+}
+
+// GET /products/:id/reviews (public)
+// Approved comments only, newest first, at most 50.
+async function listReviews(req, res) {
+  const productId = Number(req.params.id);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  const { data: product, error: productError } = await supabase
+    .from('product_catalog')
+    .select('id')
+    .eq('id', productId)
+    .maybeSingle();
+  if (productError) return serverError(res, productError);
+  if (!product) return res.status(404).json({ error: 'Product not found' });
+
+  // Shared client on purpose: only full_name is read from profiles,
+  // so user_id, email, tax_id and address never leave the server.
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('id, rating, comment, created_at, profiles(full_name)')
+    .eq('product_id', productId)
+    .eq('comment_status', 'approved')
+    .not('comment', 'is', null)
+    .neq('comment', '')
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(MAX_LISTED_REVIEWS);
+  if (error) return serverError(res, error);
+
+  return res.status(200).json((data || []).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      id: row.id,
+      rating: row.rating,
+      comment: row.comment,
+      author: displayName(profile && profile.full_name),
+      createdAt: row.created_at,
+    };
+  }));
+}
+
+module.exports = { createReview, getReviewEligibility, listReviews, displayName };
