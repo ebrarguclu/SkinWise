@@ -4,7 +4,7 @@ import { formatPrice } from '../data/products.js'
 import { fetchProduct } from '../api/products.js'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { addToCartMessage } from '../lib/cart.js'
+import { addButtonState, addToCartMessage, quantityInCart } from '../lib/cart.js'
 import EmptyState from '../components/EmptyState.jsx'
 import ReviewForm from '../components/ReviewForm.jsx'
 
@@ -26,7 +26,7 @@ export default function ProductDetail() {
   const { id } = useParams()
   const [{ product, loading, error }, setState] = useState({ product: null, loading: true, error: null })
   const [failedImage, setFailedImage] = useState(null) // image_url that could not be loaded
-  const { add } = useCart()
+  const { add, items } = useCart()
   const toast = useToast()
 
   useEffect(() => {
@@ -42,6 +42,8 @@ export default function ProductDetail() {
   if (error) return <EmptyState icon="⚠️" title="Product could not be loaded" text="Please try again later." actionLabel="Back to shop" actionTo="/products" />
   if (!product) return <EmptyState icon="❓" title="Product not found" actionLabel="Back to shop" actionTo="/products" />
   const soldOut = product.stock === 0
+  const inCart = quantityInCart(items, product.id)
+  const button = addButtonState(product, inCart)
   const { hasPrice, discounted, price, finalPrice } = priceInfo(product)
   const showImage = product.image_url && failedImage !== product.image_url
   const category = product.category_name || product.category
@@ -90,7 +92,7 @@ export default function ProductDetail() {
             </Fragment>
           ))}
         </dl>
-        <button className="btn btn-primary" disabled={soldOut}
+        <button className={`btn btn-primary${button.full ? ' btn-full' : ''}`} disabled={button.disabled}
           onClick={async () => {
             try {
               const { type, text } = addToCartMessage(product, await add(product))
@@ -99,8 +101,10 @@ export default function ProductDetail() {
               toast.error('Could not add to cart. Please try again.')
             }
           }}>
-          {soldOut ? 'Out of stock' : 'Add to cart'}
+          {button.label}
         </button>
+        {inCart > 0 && !button.full && <p className="muted">{inCart} already in your cart</p>}
+        {button.full && <p className="muted"><Link to="/cart" className="link">Go to your cart</Link></p>}
         <div className="card pad mt">
           <h3>Reviews</h3>
           <ReviewForm productId={product.id} />

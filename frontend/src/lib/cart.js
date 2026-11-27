@@ -115,3 +115,59 @@ export function mergeMessage(adjusted = []) {
   if (gone) parts.push(`${gone} ${gone === 1 ? 'item is' : 'items are'} no longer available`)
   return `Your cart was saved, but ${parts.join(' and ')}.`
 }
+
+// ---------------------------------------------------------------------------
+// Stock messages shown on the product pages and the cart page (Sprint 3 fixes).
+
+// How many of this product are already in the cart.
+export const quantityInCart = (items = [], id) =>
+  items.find((i) => i.id === id)?.qty ?? 0
+
+// What the "Add to cart" button shows. When the whole stock is already in the
+// cart the button is turned off and says so, instead of showing an error
+// every time it is clicked.
+export function addButtonState(product, inCart = 0) {
+  const stock = Number(product?.stock) || 0
+  if (stock <= 0) return { disabled: true, label: 'Out of stock', full: false }
+  if (inCart >= stock) {
+    const label = stock === 1 ? '✓ The last one is in your cart' : `✓ All ${stock} in your cart`
+    return { disabled: true, label, full: true }
+  }
+  return { disabled: false, label: 'Add to cart', full: false }
+}
+
+// The note under one cart line.
+//   'out'   = no stock left: the line has to be removed before checkout
+//   'over'  = more in the cart than in stock: the quantity has to go down
+//   'max'   = the whole stock is in the cart (fine, + is turned off)
+//   null    = nothing to say
+export function lineStatus(item) {
+  const stock = Number(item?.stock) || 0
+  if (stock <= 0) return { level: 'out', text: 'Out of stock now. Please remove it to continue.' }
+  if (item.qty > stock) return { level: 'over', text: `Only ${stock} left. Please lower the quantity.` }
+  if (item.qty === stock) {
+    return { level: 'max', text: stock === 1 ? 'You have the last one in stock' : `You have all ${stock} in stock` }
+  }
+  return null
+}
+
+// Lines that stop the customer from going to checkout.
+export const cartProblems = (items = []) =>
+  items.filter((i) => ['out', 'over'].includes(lineStatus(i)?.level))
+
+// Guest cart lines keep the price and stock from the moment they were added.
+// This updates them with the current product list. Products that are no longer
+// sold get stock 0, so the cart asks the customer to remove them.
+export function refreshGuestItems(items = [], products = []) {
+  const byId = new Map(products.map((p) => [p.id, p]))
+  let changed = false
+  const next = items.map((i) => {
+    const p = byId.get(i.id)
+    const price = p ? Number(p.price) : i.price // same price as when it was added (toCartItem)
+    const stock = p ? p.stock : 0
+    if (price === i.price && stock === i.stock) return i
+    changed = true
+    return { ...i, price, stock }
+  })
+  return changed ? next : items
+}
