@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
@@ -15,8 +15,13 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const headerRef = useRef(null)
+  const [params] = useSearchParams()
 
   const close = () => setOpen(false)
+
+  // The search box always shows the search in the address bar.
+  // Clicking "Shop" removes ?q=, so the box is cleared too.
+  useEffect(() => { setQ(params.get('q') || '') }, [params])
 
   // Close the menu after navigation (also covers the browser back button).
   useEffect(() => { setOpen(false) }, [pathname])
