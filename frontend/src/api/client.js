@@ -29,6 +29,7 @@ async function send(path, { method = 'GET', body, token } = {}) {
   if (!res.ok) {
     const error = new Error(data?.error || `Request to ${path} failed with status ${res.status}`)
     error.status = res.status
+    error.data = data // extra fields from the backend, e.g. { reason: 'stock_limit' }
     throw error
   }
   return data

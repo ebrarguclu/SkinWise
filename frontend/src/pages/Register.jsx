@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 
@@ -10,9 +10,11 @@ export default function Register() {
   const { user, register } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
   const on = (k) => (e) => setF({ ...f, [k]: e.target.value })
 
-  if (user) return <Navigate to="/" replace />
+  // A guest who came from checkout goes back there after signing up.
+  if (user) return <Navigate to={location.state?.from || '/'} replace />
 
   const submit = async (e) => {
     e.preventDefault()
@@ -24,7 +26,7 @@ export default function Register() {
         toast.success('Account created')
       } else {
         toast.success('Account created. Please confirm your email, then log in.')
-        navigate('/login')
+        navigate('/login', { state: location.state })
       }
     } catch (error) {
       toast.error(error.status ? error.message : 'Could not reach the server. Please try again.')
@@ -41,7 +43,7 @@ export default function Register() {
       <label>Home address<textarea rows="2" value={f.address} onChange={on('address')} /></label>
       <label>Password<input type="password" value={f.password} onChange={on('password')} autoComplete="new-password" /></label>
       <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Signing up…' : 'Sign up'}</button>
-      <p className="muted center-text">Already have an account? <Link to="/login" className="link">Log in</Link></p>
+      <p className="muted center-text">Already have an account? <Link to="/login" state={location.state} className="link">Log in</Link></p>
     </form>
   )
 }

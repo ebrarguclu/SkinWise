@@ -10,9 +10,13 @@ export default function ProductCard({ product }) {
   const toast = useToast()
   const soldOut = product.stock === 0
 
-  const handleAdd = () => {
-    const { type, text } = addToCartMessage(product, add(product))
-    toast[type](text)
+  const handleAdd = async () => {
+    try {
+      const { type, text } = addToCartMessage(product, await add(product))
+      toast[type](text)
+    } catch {
+      toast.error('Could not add to cart. Please try again.')
+    }
   }
 
   return (
@@ -32,7 +36,7 @@ export default function ProductCard({ product }) {
         </div>
         <div className="row between center">
           <strong>{formatPrice(product.price)}</strong>
-          <span className="muted">★ {product.rating}</span>
+          <span className="muted">{product.review_count > 0 ? `★ ${product.rating}` : 'No reviews yet'}</span>
         </div>
         <small className={soldOut ? 'stock out' : 'stock'}>{stockLabel(product.stock)}</small>
         <button className="btn btn-primary btn-block" disabled={soldOut} onClick={handleAdd}>
