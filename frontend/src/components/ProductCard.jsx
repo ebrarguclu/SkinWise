@@ -36,7 +36,7 @@ export default function ProductCard({ product }) {
         </div>
         <div className="row between center">
           <strong>{formatPrice(product.price)}</strong>
-          <span className="muted">★ {product.rating}</span>
+          <span className="muted">{product.review_count > 0 ? `★ ${product.rating}` : 'No reviews yet'}</span>
         </div>
         <small className={soldOut ? 'stock out' : 'stock'}>{stockLabel(product.stock)}</small>
         <button className="btn btn-primary btn-block" disabled={soldOut} onClick={handleAdd}>
