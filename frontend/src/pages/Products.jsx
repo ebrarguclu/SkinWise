@@ -1,31 +1,29 @@
 import { useSearchParams } from 'react-router-dom'
 import { useProducts } from '../hooks/useProducts.js'
 import { useCategories } from '../hooks/useCategories.js'
+import { resultsText, SORT_OPTIONS } from '../lib/search.js'
 import ProductCard from '../components/ProductCard.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import EmptyState from '../components/EmptyState.jsx'
+import './Products.css'
 
-// Product list page: browse products by category (Jira: Safiye, Catalog & Search).
-// The selected category lives in the URL (/products?category=serum), so links from the
-// home page work and the page can be shared or refreshed.
-// Filtering by category is done by the backend: GET /products?category=<slug>.
-// Search (?q=) and sorting (?sort=) still run in the browser; they move to the backend in Sprint 2.
+// Product list and search results page (Jira: Safiye, Catalog & Search).
+// Everything the customer picks lives in the URL, so the page can be shared or refreshed
+// and the navbar search and home page category links open the right list:
+//   /products?category=serum            products of one category
+//   /products?q=vitamin c               search results (name, description or brand)
+//   /products?q=rice&sort=price-asc     search results, cheapest first
+// Filtering, searching and sorting are all done by the backend: GET /products?category=&q=&sort=
+// Sold-out products are shown in the results, but ProductCard does not let them be added to the cart.
 export default function Products() {
   const [params, setParams] = useSearchParams()
-  const q = (params.get('q') || '').toLowerCase()
+  const q = (params.get('q') || '').trim()
   const category = params.get('category') || ''
   const sort = params.get('sort') || ''
 
-  const { products, loading, error } = useProducts(category)
+  const { products, loading, error } = useProducts(category, { q, sort })
   const { categories } = useCategories()
   const current = categories.find((c) => c.slug === category)
-
-  let list = products.filter((p) =>
-    !q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)
-  )
-  if (sort === 'price-asc') list = [...list].sort((a, b) => a.price - b.price)
-  if (sort === 'price-desc') list = [...list].sort((a, b) => b.price - a.price)
-  if (sort === 'popular') list = [...list].sort((a, b) => b.rating - a.rating)
 
   const set = (key, value) => {
     const next = new URLSearchParams(params)
@@ -33,20 +31,34 @@ export default function Products() {
     setParams(next)
   }
 
-  const subtitle = loading || error
-    ? ''
-    : `${list.length} ${list.length === 1 ? 'product' : 'products'} found`
+  const search = (e) => {
+    e.preventDefault()
+    set('q', new FormData(e.currentTarget).get('q').trim())
+  }
+
+  const title = q ? 'Search results' : current ? current.name : 'Shop'
+  const subtitle = loading || error ? '' : resultsText(products.length, q, current?.name)
 
   return (
     <>
-      <PageHeader title={current ? current.name : 'Shop'} subtitle={subtitle}>
-        <select value={sort} onChange={(e) => set('sort', e.target.value)} aria-label="Sort">
-          <option value="">Sort by</option>
-          <option value="price-asc">Price: low to high</option>
-          <option value="price-desc">Price: high to low</option>
-          <option value="popular">Popularity</option>
-        </select>
+      <PageHeader title={title} subtitle={subtitle}>
+        <div className="list-tools">
+          {/* key={q}: the box shows the new text when the search changes from the navbar */}
+          <form key={q} className="page-search" role="search" onSubmit={search}>
+            <input name="q" type="search" defaultValue={q} maxLength={100} placeholder="Search by name or description" aria-label="Search products" />
+            <button type="submit" className="btn btn-primary btn-sm">Search</button>
+          </form>
+          <select value={sort} onChange={(e) => set('sort', e.target.value)} aria-label="Sort">
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
       </PageHeader>
+
+      {q && (
+        <p className="search-note">
+          <button type="button" className="link-btn" onClick={() => set('q', '')}>✕ Clear search</button>
+        </p>
+      )}
 
       {/* Category menu: "All" + one button per category from GET /categories */}
       <nav className="cat-menu" aria-label="Product categories">
@@ -74,17 +86,19 @@ export default function Products() {
       {loading ? (
         <p className="muted">Loading products…</p>
       ) : error ? (
-        <EmptyState icon="⚠️" title="Products could not be loaded" text="Please try again later." actionLabel="Show all products" actionTo="/products" />
-      ) : list.length === 0 ? (
+        <EmptyState icon="⚠️" title="Products could not be loaded" text={error.status === 400 ? error.message : 'Please try again later.'} actionLabel="Show all products" actionTo="/products" />
+      ) : products.length === 0 ? (
         <EmptyState
           icon="🔍"
-          title="No products found"
-          text={current ? `There are no products in ${current.name} yet.` : 'Try changing your search or filters.'}
+          title={q ? `No results for “${q}”` : 'No products found'}
+          text={q
+            ? 'Check the spelling, try fewer words or search in all categories.'
+            : current ? `There are no products in ${current.name} yet.` : 'Try another category.'}
           actionLabel="Show all products"
           actionTo="/products"
         />
       ) : (
-        <div className="grid">{list.map((p) => <ProductCard key={p.id} product={p} />)}</div>
+        <div className="grid">{products.map((p) => <ProductCard key={p.id} product={p} />)}</div>
       )}
     </>
   )

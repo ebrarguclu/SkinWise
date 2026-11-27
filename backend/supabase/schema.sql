@@ -363,6 +363,25 @@ create policy "Categories are readable by everyone"
 create policy "Active products are readable by everyone"
   on public.products for select to anon, authenticated using (is_active);
 
+-- Sepet: giris yapan kullanici sadece KENDI sepet satirlarini okuyup degistirebilir
+-- (Sprint 2, DP-14). /cart API'si sorgulari kullanicinin kimligiyle calistirir.
+create policy "Users can read their own cart"
+  on public.cart_items for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+create policy "Users can add to their own cart"
+  on public.cart_items for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+
+create policy "Users can change their own cart"
+  on public.cart_items for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+create policy "Users can remove from their own cart"
+  on public.cart_items for delete to authenticated
+  using ((select auth.uid()) = user_id);
+
 
 -- ---------------------------------------------------------------------
 -- 14) BASLANGIC VERISI

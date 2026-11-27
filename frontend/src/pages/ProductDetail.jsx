@@ -91,7 +91,14 @@ export default function ProductDetail() {
           ))}
         </dl>
         <button className="btn btn-primary" disabled={soldOut}
-          onClick={() => { const { type, text } = addToCartMessage(product, add(product)); toast[type](text) }}>
+          onClick={async () => {
+            try {
+              const { type, text } = addToCartMessage(product, await add(product))
+              toast[type](text)
+            } catch {
+              toast.error('Could not add to cart. Please try again.')
+            }
+          }}>
           {soldOut ? 'Out of stock' : 'Add to cart'}
         </button>
         <div className="card pad mt">

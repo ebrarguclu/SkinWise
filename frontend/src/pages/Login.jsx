@@ -30,10 +30,13 @@ export default function Login() {
   return (
     <form className="card pad auth" onSubmit={submit}>
       <h1>Log in</h1>
+      {location.state?.from === '/checkout' && (
+        <p className="muted">Log in to place your order. Your cart is kept.</p>
+      )}
       <label>Email<input type="email" value={form.email} onChange={on('email')} autoComplete="email" /></label>
       <label>Password<input type="password" value={form.password} onChange={on('password')} autoComplete="current-password" /></label>
       <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
-      <p className="muted center-text">Don't have an account? <Link to="/register" className="link">Sign up</Link></p>
+      <p className="muted center-text">Don't have an account? <Link to="/register" state={location.state} className="link">Sign up</Link></p>
     </form>
   )
 }
