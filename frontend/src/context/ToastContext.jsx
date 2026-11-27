@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react'
+import { addToast } from '../lib/toasts.js'
 
 const ToastContext = createContext(null)
 export const useToast = () => useContext(ToastContext)
@@ -9,7 +10,7 @@ export function ToastProvider({ children }) {
 
   const push = useCallback((type, message) => {
     const id = Date.now() + Math.random()
-    setToasts((t) => [...t, { id, type, message }])
+    setToasts((t) => addToast(t, { id, type, message })) // no duplicates, at most 3
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500)
   }, [])
 

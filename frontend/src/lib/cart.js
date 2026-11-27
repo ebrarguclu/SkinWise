@@ -34,6 +34,7 @@ const toCartItem = (product, qty) => ({
   name: product.name,
   price: Number(product.price),
   emoji: product.emoji,
+  imageUrl: product.image_url || product.imageUrl || null, // photo shown on the cart page
   stock: product.stock,
   qty,
 })
@@ -82,4 +83,91 @@ export function addToCartMessage(product, { added, reason }) {
   if (added === 0) return { type: 'error', text: `You already have all ${product.stock} in your cart` }
   if (reason === 'stock_limit') return { type: 'info', text: `Only ${added} more could be added (${product.stock} in stock)` }
   return { type: 'success', text: `${product.name} added to cart` }
+}
+
+// ---------------------------------------------------------------------------
+// Saved cart of a logged-in user (Sprint 2). The backend keeps it in cart_items;
+// these helpers convert between its format and the one the cart pages use.
+
+// Backend line { productId, quantity, ... } -> page line { id, qty, ... }
+export const fromServerItems = (items = []) =>
+  items.map((i) => ({
+    id: i.productId,
+    name: i.name,
+    price: Number(i.price),
+    emoji: i.emoji,
+    imageUrl: i.imageUrl,
+    stock: i.stock,
+    qty: i.quantity,
+  }))
+
+// Guest cart -> what POST /cart/merge expects
+export const toMergeItems = (items = []) =>
+  items.map((i) => ({ productId: i.id, quantity: i.qty }))
+
+// Toast after login when part of the guest cart could not be kept
+export function mergeMessage(adjusted = []) {
+  if (adjusted.length === 0) return null
+  const gone = adjusted.filter((a) => a.quantity === 0).length
+  const fewer = adjusted.length - gone
+  const parts = []
+  if (fewer) parts.push(`${fewer} ${fewer === 1 ? 'item was' : 'items were'} reduced to the stock left`)
+  if (gone) parts.push(`${gone} ${gone === 1 ? 'item is' : 'items are'} no longer available`)
+  return `Your cart was saved, but ${parts.join(' and ')}.`
+}
+
+// ---------------------------------------------------------------------------
+// Stock messages shown on the product pages and the cart page (Sprint 3 fixes).
+
+// How many of this product are already in the cart.
+export const quantityInCart = (items = [], id) =>
+  items.find((i) => i.id === id)?.qty ?? 0
+
+// What the "Add to cart" button shows. When the whole stock is already in the
+// cart the button is turned off and says so, instead of showing an error
+// every time it is clicked.
+export function addButtonState(product, inCart = 0) {
+  const stock = Number(product?.stock) || 0
+  if (stock <= 0) return { disabled: true, label: 'Out of stock', full: false }
+  if (inCart >= stock) {
+    const label = stock === 1 ? '✓ The last one is in your cart' : `✓ All ${stock} in your cart`
+    return { disabled: true, label, full: true }
+  }
+  return { disabled: false, label: 'Add to cart', full: false }
+}
+
+// The note under one cart line.
+//   'out'   = no stock left: the line has to be removed before checkout
+//   'over'  = more in the cart than in stock: the quantity has to go down
+//   'max'   = the whole stock is in the cart (fine, + is turned off)
+//   null    = nothing to say
+export function lineStatus(item) {
+  const stock = Number(item?.stock) || 0
+  if (stock <= 0) return { level: 'out', text: 'Out of stock now. Please remove it to continue.' }
+  if (item.qty > stock) return { level: 'over', text: `Only ${stock} left. Please lower the quantity.` }
+  if (item.qty === stock) {
+    return { level: 'max', text: stock === 1 ? 'You have the last one in stock' : `You have all ${stock} in stock` }
+  }
+  return null
+}
+
+// Lines that stop the customer from going to checkout.
+export const cartProblems = (items = []) =>
+  items.filter((i) => ['out', 'over'].includes(lineStatus(i)?.level))
+
+// Guest cart lines keep the price and stock from the moment they were added.
+// This updates them with the current product list. Products that are no longer
+// sold get stock 0, so the cart asks the customer to remove them.
+export function refreshGuestItems(items = [], products = []) {
+  const byId = new Map(products.map((p) => [p.id, p]))
+  let changed = false
+  const next = items.map((i) => {
+    const p = byId.get(i.id)
+    const price = p ? Number(p.price) : i.price // same price as when it was added (toCartItem)
+    const stock = p ? p.stock : 0
+    if (price === i.price && stock === i.stock) return i
+    changed = true
+    return { ...i, price, stock }
+  })
+  return changed ? next : items
 }

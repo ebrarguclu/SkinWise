@@ -2,17 +2,23 @@ import { Link } from 'react-router-dom'
 import { formatPrice } from '../data/products.js'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { addToCartMessage } from '../lib/cart.js'
+import { addButtonState, addToCartMessage, quantityInCart } from '../lib/cart.js'
 import { stockLabel } from '../lib/stock.js'
 
 export default function ProductCard({ product }) {
-  const { add } = useCart()
+  const { add, items } = useCart()
   const toast = useToast()
   const soldOut = product.stock === 0
+  // When the whole stock is already in the cart the button says so and is turned off.
+  const button = addButtonState(product, quantityInCart(items, product.id))
 
-  const handleAdd = () => {
-    const { type, text } = addToCartMessage(product, add(product))
-    toast[type](text)
+  const handleAdd = async () => {
+    try {
+      const { type, text } = addToCartMessage(product, await add(product))
+      toast[type](text)
+    } catch {
+      toast.error('Could not add to cart. Please try again.')
+    }
   }
 
   return (
@@ -35,8 +41,8 @@ export default function ProductCard({ product }) {
           <span className="muted">★ {product.rating}</span>
         </div>
         <small className={soldOut ? 'stock out' : 'stock'}>{stockLabel(product.stock)}</small>
-        <button className="btn btn-primary btn-block" disabled={soldOut} onClick={handleAdd}>
-          {soldOut ? 'Out of stock' : 'Add to cart'}
+        <button className={`btn btn-primary btn-block${button.full ? ' btn-full' : ''}`} disabled={button.disabled} onClick={handleAdd}>
+          {button.label}
         </button>
       </div>
     </article>

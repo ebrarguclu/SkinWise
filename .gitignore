@@ -1,9 +1,29 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+build/
+coverage/
+
+# Environment files (keep the example tracked)
 .env
 .env.*
 !.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor and tool folders
+.vscode/
+.idea/
+.claude/
+
+# Local team folders
 frontend-backup/
 frontend-new/
-.claude/
-.vscode/
