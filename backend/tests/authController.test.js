@@ -68,6 +68,48 @@ describe('POST /auth/register', () => {
     expect(res.json).toHaveBeenCalledWith({ session: { accessToken: 'access', refreshToken: 'refresh' } });
   });
 
+  describe('when Supabase returns 429', () => {
+    beforeEach(() => jest.spyOn(console, 'error').mockImplementation(() => {}));
+    afterEach(() => jest.restoreAllMocks());
+
+    const rateLimited = (code) => mockAuth({
+      signUp: jest.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: { status: 429, code, message: 'rate limit exceeded' },
+      }),
+    });
+
+    test('explains the project email limit instead of blaming the user', async () => {
+      rateLimited('over_email_send_rate_limit');
+      const res = mockRes();
+      await register({ body: validBody }, res);
+      expect(res.status).toHaveBeenCalledWith(429);
+      const body = res.json.mock.calls[0][0];
+      expect(body.reason).toBe('email_limit');
+      expect(body.error).toMatch(/confirmation email/);
+      expect(body.error).not.toMatch(/Too many attempts/);
+    });
+
+    test('says "too many attempts" for a request rate limit', async () => {
+      rateLimited('over_request_rate_limit');
+      const res = mockRes();
+      await register({ body: validBody }, res);
+      expect(res.status).toHaveBeenCalledWith(429);
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'Too many attempts. Please try again later',
+        reason: 'too_many_requests',
+      });
+    });
+
+    test('logs the Supabase error code so the cause can be found', async () => {
+      rateLimited('over_email_send_rate_limit');
+      await register({ body: validBody }, mockRes());
+      expect(console.error).toHaveBeenCalledWith(
+        'Supabase rate limit:', 'over_email_send_rate_limit', '-', 'rate limit exceeded',
+      );
+    });
+  });
+
   test('returns a null session when email confirmation is required', async () => {
     mockAuth({
       signUp: jest.fn().mockResolvedValue({ data: { user: { identities: [{}] }, session: null }, error: null }),
@@ -101,6 +143,21 @@ describe('POST /auth/register', () => {
 });
 
 describe('POST /auth/login', () => {
+  test('returns 429 "too many attempts" when Supabase rate-limits the login', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockAuth({
+      signInWithPassword: jest.fn().mockResolvedValue({
+        data: { session: null },
+        error: { status: 429, code: 'over_request_rate_limit', message: 'rate limit exceeded' },
+      }),
+    });
+    const res = mockRes();
+    await login({ body: { email: 'ada@example.test', password: 'test-pass-1' } }, res);
+    expect(res.status).toHaveBeenCalledWith(429);
+    expect(res.json.mock.calls[0][0].reason).toBe('too_many_requests');
+    jest.restoreAllMocks();
+  });
+
   test('returns 200 and the session', async () => {
     mockAuth({ signInWithPassword: jest.fn().mockResolvedValue({ data: { session }, error: null }) });
     const res = mockRes();
