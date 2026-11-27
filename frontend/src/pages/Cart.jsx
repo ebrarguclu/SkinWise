@@ -3,17 +3,20 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { formatPrice } from '../data/products.js'
-import { cartProblems, lineStatus } from '../lib/cart.js'
+import { cartProblems, lineStatus, stockChangeMessage } from '../lib/cart.js'
 import PageHeader from '../components/PageHeader.jsx'
 import EmptyState from '../components/EmptyState.jsx'
 
 export default function Cart() {
-  const { items, setQty, remove, total, ready, updating, loggedIn, refresh } = useCart()
+  const {
+    items, setQty, remove, total, ready, updating, loggedIn, refresh, stockChanges = [], dismissStockChanges,
+  } = useCart()
   const toast = useToast()
   const navigate = useNavigate()
 
   // Load the current price and stock once the cart is ready, because stock can
-  // drop after a product was added (someone else bought it).
+  // drop after a product was added (someone else bought it). The cart then lowers
+  // the quantity by itself and a short notice says what changed.
   const refreshed = useRef(false)
   useEffect(() => {
     if (!ready || refreshed.current) return
@@ -21,6 +24,11 @@ export default function Cart() {
     refresh()
   }, [ready, refresh])
 
+  // The notice is about this visit only; it goes away when the customer leaves the page.
+  useEffect(() => () => dismissStockChanges?.(), []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Normally empty: the cart already fixed the quantities. Only if that could not be
+  // saved (for example no connection) do lines stay marked and checkout stays off.
   const problems = cartProblems(items)
 
   // Requirement 4: anyone can fill a cart, but placing an order needs an account.
@@ -34,12 +42,22 @@ export default function Cart() {
 
   if (!ready) return <p className="muted">Loading your cart…</p>
 
+  // Shown above the cart (also when the last product was sold out and the cart is now empty)
+  const notice = stockChanges.length > 0 && (
+    <div className="card pad stock-notice" role="status">
+      <span aria-hidden="true">ℹ️</span>
+      <p><strong>Stock changed since you added these products.</strong> {stockChangeMessage(stockChanges)}</p>
+      <button className="btn-icon" aria-label="Close notice" onClick={dismissStockChanges}>✕</button>
+    </div>
+  )
+
   if (items.length === 0)
-    return <EmptyState icon="🛒" title="Your cart is empty" text="Add products you like to your cart to get started." actionLabel="Start shopping" actionTo="/products" />
+    return <>{notice}<EmptyState icon="🛒" title="Your cart is empty" text="Add products you like to your cart to get started." actionLabel="Start shopping" actionTo="/products" /></>
 
   return (
     <>
       <PageHeader title="My Cart" subtitle={`${items.length} ${items.length === 1 ? 'item' : 'items'}`} />
+      {notice}
       <div className="cart-layout">
         <div className="stack">
           {items.map((i) => {

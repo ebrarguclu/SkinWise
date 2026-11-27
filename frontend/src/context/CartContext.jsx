@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
 import { useToast } from './ToastContext.jsx'
 import {
-  addItem, cartCount, cartTotal, fromServerItems, loadCart, mergeMessage,
+  addItem, cartCount, cartTotal, fitToStock, fromServerItems, loadCart, mergeMessage,
   refreshGuestItems, removeItem, saveCart, setItemQuantity, toMergeItems,
 } from '../lib/cart.js'
 import { addCartItem, fetchCart, mergeGuestCart, removeCartItem, updateCartItem } from '../api/cart.js'
@@ -23,6 +23,7 @@ export function CartProvider({ children }) {
   const [savedItems, setSavedItems] = useState([])
   const [ready, setReady] = useState(true)       // false while the saved cart is loading
   const [updating, setUpdating] = useState(false) // true while a change is being saved
+  const [stockChanges, setStockChanges] = useState([]) // what the cart fixed itself (shown on the cart page)
   const syncedUserId = useRef(null)
   const toastRef = useRef(toast)
   toastRef.current = toast
@@ -113,18 +114,30 @@ export function CartProvider({ children }) {
   }
 
   // Loads the current price and stock (the cart page calls this when it opens).
-  // Guest: the browser copy is updated from GET /products, because stock may have
-  //        dropped since the product was added.
-  // Logged in: the saved cart is read again (also used after an order).
+  // Stock may have dropped since a product was added (someone else bought it).
+  // The cart then fixes itself: quantities go down to the stock left and sold-out
+  // products are removed. stockChanges tells the cart page what was changed.
+  // Guest: the browser copy is updated from GET /products.
+  // Logged in: the saved cart is read again and the changes are saved with PATCH/DELETE.
   const refresh = async () => {
     try {
       if (!loggedIn) {
         if (guestItems.length === 0) return
         const products = await fetchProducts()
-        setGuestItems((prev) => refreshGuestItems(prev, products))
+        const { items: fitted, changes } = fitToStock(refreshGuestItems(guestItems, products))
+        setGuestItems(fitted)
+        if (changes.length) setStockChanges(changes)
         return
       }
-      await save(fetchCart)
+      await save(async () => {
+        let result = await fetchCart()
+        const { changes } = fitToStock(fromServerItems(result.items))
+        for (const c of changes) {
+          result = c.to === 0 ? await removeCartItem(c.id) : await updateCartItem(c.id, c.to)
+        }
+        if (changes.length) setStockChanges(changes)
+        return result
+      })
     } catch { /* keep what is shown; the next page load tries again */ }
   }
 
@@ -132,7 +145,11 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider value={{
-      items, add, setQty, remove, clear, refresh, ready, updating, loggedIn,
+      items, add, setQty, remove, clear, refresh, updating, loggedIn,
+      // Not ready while the login is still being checked, so the cart page does not
+      // load the guest cart for a customer who is actually logged in.
+      ready: ready && !authLoading,
+      stockChanges, dismissStockChanges: () => setStockChanges([]),
       count: cartCount(items), total: cartTotal(items),
     }}>
       {children}

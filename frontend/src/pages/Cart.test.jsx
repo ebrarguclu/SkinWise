@@ -23,7 +23,8 @@ function useCartWith(items, extra = {}) {
   cart.value = {
     items, ready: true, updating: false, loggedIn: false,
     total: items.reduce((s, i) => s + i.price * i.qty, 0),
-    setQty: vi.fn(), remove: vi.fn(), refresh: vi.fn(), add: vi.fn(), ...extra,
+    setQty: vi.fn(), remove: vi.fn(), refresh: vi.fn(), add: vi.fn(),
+    stockChanges: [], dismissStockChanges: vi.fn(), ...extra,
   }
 }
 
@@ -40,7 +41,27 @@ describe('Cart page', () => {
     expect(screen.getByRole('button', { name: 'Increase' }).disabled).toBe(true)
   })
 
-  test('blocks checkout and explains why when the stock dropped below the quantity', () => {
+  test('says what the cart changed by itself when stock dropped, and the notice can be closed', () => {
+    useCartWith([line({ qty: 1, stock: 1 })], {
+      stockChanges: [{ id: 1, name: 'Vitamin C Serum', from: 4, to: 1 }, { id: 2, name: 'Clay Mask', from: 1, to: 0 }],
+    })
+    show(<Cart />)
+    const notice = screen.getByRole('status')
+    expect(notice.textContent).toContain('Vitamin C Serum: only 1 left, so your quantity is now 1.')
+    expect(notice.textContent).toContain('Clay Mask is sold out and was removed.')
+    expect(screen.getByRole('button', { name: 'Proceed to checkout' }).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Close notice' }))
+    expect(cart.value.dismissStockChanges).toHaveBeenCalled()
+  })
+
+  test('still shows the notice when the only product was sold out and the cart is now empty', () => {
+    useCartWith([], { stockChanges: [{ id: 2, name: 'Clay Mask', from: 1, to: 0 }] })
+    show(<Cart />)
+    expect(screen.getByText('Your cart is empty')).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain('Clay Mask is sold out and was removed.')
+  })
+
+  test('fallback: if the cart could not fix itself, checkout stays off and explains why', () => {
     useCartWith([line({ qty: 4, stock: 1 })])
     show(<Cart />)
     expect(screen.getByText('Only 1 left. Please lower the quantity.')).toBeTruthy()

@@ -1,7 +1,8 @@
 // Unit tests for the stock messages added in Sprint 3 (bug fixes on the cart).
 import { describe, expect, test } from 'vitest'
 import {
-  addButtonState, cartProblems, lineStatus, quantityInCart, refreshGuestItems,
+  addButtonState, cartProblems, fitToStock, lineStatus, quantityInCart, refreshGuestItems,
+  stockChangeMessage,
 } from './cart.js'
 import { MAX_TOASTS, addToast } from './toasts.js'
 
@@ -95,5 +96,35 @@ describe('addToast (toasts do not pile up)', () => {
   })
   test('the same text with a different type is a different toast', () => {
     expect(addToast([t(1, 'Saved', 'info')], t(2, 'Saved', 'success'))).toHaveLength(2)
+  })
+})
+
+describe('fitToStock (the cart fixes itself when stock dropped)', () => {
+  test('lowers the quantity to the stock left', () => {
+    const { items, changes } = fitToStock([line({ id: 1, name: 'Aloe Gel', qty: 4, stock: 1 })])
+    expect(items).toEqual([line({ id: 1, name: 'Aloe Gel', qty: 1, stock: 1 })])
+    expect(changes).toEqual([{ id: 1, name: 'Aloe Gel', from: 4, to: 1 }])
+  })
+  test('takes out products that are sold out', () => {
+    const { items, changes } = fitToStock([line({ id: 1, stock: 0 }), line({ id: 2, qty: 2, stock: 5 })])
+    expect(items.map((i) => i.id)).toEqual([2])
+    expect(changes).toEqual([{ id: 1, name: 'Serum', from: 1, to: 0 }])
+  })
+  test('leaves a normal cart alone and returns the same list', () => {
+    const items = [line({ qty: 3, stock: 3 })]
+    expect(fitToStock(items)).toEqual({ items, changes: [] })
+    expect(fitToStock(items).items).toBe(items)
+  })
+})
+
+describe('stockChangeMessage', () => {
+  test('explains lowered and removed products in one notice', () => {
+    expect(stockChangeMessage([
+      { id: 1, name: 'Aloe Gel', from: 4, to: 1 },
+      { id: 2, name: 'Clay Mask', from: 1, to: 0 },
+    ])).toBe('Aloe Gel: only 1 left, so your quantity is now 1. Clay Mask is sold out and was removed.')
+  })
+  test('empty when nothing changed', () => {
+    expect(stockChangeMessage([])).toBe('')
   })
 })

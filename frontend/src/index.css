@@ -117,6 +117,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .stock-note { display: inline-block; align-self: flex-start; margin-top: .2rem; padding: .15rem .6rem; border-radius: 999px; font-size: .82rem; font-weight: 600; }
 .stock-note-max { background: var(--soft); color: var(--primary-dark); }
 .stock-note-over, .stock-note-out { background: #fdecea; color: var(--danger); }
+/* Notice when the cart lowered quantities by itself because stock dropped */
+.stock-notice { display: flex; align-items: flex-start; gap: .7rem; margin-bottom: 1rem; background: #f3f6f8; border-color: #cfd9e0; }
+.stock-notice p { margin: 0; flex: 1; }
 p.stock-note { display: block; align-self: stretch; border-radius: 10px; padding: .5rem .7rem; }
 /* "Add to cart" when the whole stock is already in the cart */
 .btn.btn-full:disabled { background: var(--soft); color: var(--primary-dark); border: 1.5px solid var(--primary); opacity: 1; cursor: default; }

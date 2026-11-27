@@ -6,8 +6,8 @@ Owner: Fethiye Ebrar Güçlü · Branch: `ebrar/fix/cart-ux`
 
 | Kind | What it checks | File | How to run | Count |
 |---|---|---|---|---|
-| Unit tests | Stock and toast rules as pure functions | `frontend/src/lib/cartStock.test.js` | `cd frontend && npm test` | 19 |
-| Component tests | The real Cart page and ProductCard drawn in a fake browser (jsdom) | `frontend/src/pages/Cart.test.jsx` | `cd frontend && npm test` | 9 |
+| Unit tests | Stock and toast rules as pure functions | `frontend/src/lib/cartStock.test.js` | `cd frontend && npm test` | 24 |
+| Component tests | The real Cart page and ProductCard drawn in a fake browser (jsdom) | `frontend/src/pages/Cart.test.jsx` | `cd frontend && npm test` | 11 |
 | API integration tests | Real HTTP requests to the Express app: routes, `requireAuth`, controller, RLS-like database | `backend/tests/cartApi.integration.test.js` | `cd backend && npm test` | 9 |
 | Use case tests (manual / end to end) | The flows below, clicked through in the browser | this file | by hand, see the steps | 6 |
 
@@ -19,7 +19,8 @@ Owner: Fethiye Ebrar Güçlü · Branch: `ebrar/fix/cart-ux`
 | BUG-2 | Toasts piled up (5 clicks = 5 boxes) and covered the buttons of the product cards. | The same message replaces the old one, at most 3 toasts are shown, and toasts no longer block clicks. |
 | BUG-3 | On a phone, cart lines broke: the product name wrapped word by word and the remove button fell onto its own line. On a computer the quantity buttons were not lined up. | Cart lines use fixed columns on a computer and a two-row layout on a phone. |
 | BUG-4 | Reaching the stock limit in the cart was shown only as faint grey text. | A green note says "You have all 3 in stock", and + is turned off. |
-| BUG-5 | The cart did not notice when stock dropped after a product was added: the guest cart kept the old price and stock, and checkout was possible with products that were sold out. | The cart page loads the current price and stock. Lines above the stock or out of stock are marked in red, and checkout stays off until they are fixed. |
+| BUG-5 | The cart did not notice when stock dropped after a product was added: the guest cart kept the old price and stock, and checkout was possible with products that were sold out. | The cart page loads the current price and stock and fixes the cart by itself: quantities go down to the stock left, sold-out products are removed, and one notice says what changed. (Only if that cannot be saved do the lines stay marked in red with checkout off.) |
+| BUG-6 | After a page refresh a logged-in customer's cart page first acted as a guest cart, because the login was still being checked. | The cart is "ready" only after the login check has finished. |
 
 ## Use cases
 
@@ -42,15 +43,19 @@ Expected: The button says "✓ All 3 in your cart" and is turned off, with a "Go
 
 Result: **Pass**
 
-### UC-3: Stock drops after the product was added (BUG-5)
-1. As a guest, add 4 of a product, then lower its stock to 1 in Supabase.
-2. Open My Cart.
+### UC-3: Stock drops after the product was added (BUG-5, BUG-6)
+1. Add 4 of a product to the cart (as a guest, or logged in).
+2. In Supabase, lower that product's stock to 1, and set another cart product's stock to 0.
+3. Open My Cart (also after a page refresh).
 
 Expected:
-- The line shows the current price and the red note "Only 1 left. Please lower the quantity."
-- "Proceed to checkout" is turned off, with "1 item needs your attention before checkout."
-- Pressing − sets the quantity to 1 and checkout turns on again.
-- A product that is no longer sold shows "Out of stock now. Please remove it to continue."
+- The quantity is now 1 by itself (for a logged-in customer also in `cart_items`).
+- The sold-out product is removed.
+- A blue notice says: "Stock changed since you added these products. … only 1 left, so your quantity is now 1. … is sold out and was removed."
+- Checkout stays on.
+- The notice can be closed and is gone on the next visit.
+
+Afterwards: set the stock back in Supabase.
 
 Result: **Pass**
 

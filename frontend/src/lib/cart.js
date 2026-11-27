@@ -171,3 +171,29 @@ export function refreshGuestItems(items = [], products = []) {
   })
   return changed ? next : items
 }
+
+// When stock dropped after products were added, the cart fixes itself instead of
+// asking the customer: quantities go down to the stock left and sold-out products
+// are taken out. Returns the new list and what changed, for one short notice.
+//   changes: [{ id, name, from, to }]   (to = 0 means removed)
+export function fitToStock(items = []) {
+  const changes = []
+  const next = []
+  for (const i of items) {
+    const stock = Math.max(Number(i.stock) || 0, 0)
+    if (i.qty <= stock) { next.push(i); continue }
+    changes.push({ id: i.id, name: i.name, from: i.qty, to: stock })
+    if (stock > 0) next.push({ ...i, qty: stock })
+  }
+  return { items: changes.length ? next : items, changes }
+}
+
+// Text of the notice on the cart page, e.g.
+// "Aloe Gel: only 1 left, so your quantity is now 1. Clay Mask is sold out and was removed."
+export function stockChangeMessage(changes = []) {
+  return changes
+    .map((c) => (c.to === 0
+      ? `${c.name} is sold out and was removed.`
+      : `${c.name}: only ${c.to} left, so your quantity is now ${c.to}.`))
+    .join(' ')
+}
