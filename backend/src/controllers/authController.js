@@ -10,6 +10,22 @@ function sessionResponse(session) {
   };
 }
 
+// Supabase returns 429 for two different limits:
+// - over_email_send_rate_limit: the whole project has sent too many emails this hour.
+//   With email confirmation on, every sign-up sends one, so a brand-new user can hit
+//   it on their first try because of sign-ups by other people.
+// - any other 429 (e.g. over_request_rate_limit): too many requests from this person.
+function tooManyRequests(res, error) {
+  console.error('Supabase rate limit:', error.code || 'unknown', '-', error.message);
+  if (error.code === 'over_email_send_rate_limit') {
+    return res.status(429).json({
+      error: 'We could not send the confirmation email because too many emails were sent recently. Please try again in a little while',
+      reason: 'email_limit',
+    });
+  }
+  return res.status(429).json({ error: 'Too many attempts. Please try again later', reason: 'too_many_requests' });
+}
+
 async function register(req, res) {
   const { name, taxId, email, address, password } = req.body || {};
 
@@ -32,7 +48,7 @@ async function register(req, res) {
       return res.status(409).json({ error: 'This email is already registered' });
     }
     if (error.status === 429) {
-      return res.status(429).json({ error: 'Too many attempts. Please try again later' });
+      return tooManyRequests(res, error);
     }
     if (error.status && error.status < 500) {
       return res.status(400).json({ error: error.message });
@@ -68,7 +84,7 @@ async function login(req, res) {
       return res.status(403).json({ error: 'Please confirm your email before logging in' });
     }
     if (error.status === 429) {
-      return res.status(429).json({ error: 'Too many attempts. Please try again later' });
+      return tooManyRequests(res, error);
     }
     if (error.status && error.status < 500) {
       return res.status(401).json({ error: 'Incorrect email or password' });
