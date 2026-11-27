@@ -3,7 +3,7 @@
 A skincare e-commerce web app that personalises shopping to each user's skin.
 
 	⁠CS 308 Software Engineering group project · Sabancı University · Fall 2026–27
-	⁠🚧 Currently in the planning phase.
+	⁠🚧 In development (Sprint 3 of the progress demo plan).
 
 ## About
 
@@ -23,6 +23,44 @@ On top of this, SkinWise covers the full online shopping experience: product cat
 •⁠  ⁠React
 •⁠  ⁠Node.js
 •⁠  ⁠Supabase
+
+## Running locally
+
+You need Node.js 18 or newer.
+
+### 1. Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+```
+
+Fill in `backend/.env` from Supabase Dashboard > Project Settings > API Keys:
+
+- `SUPABASE_URL`: the project URL
+- `SUPABASE_KEY`: the **secret key** (`sb_secret_...`), not the publishable key
+
+With the publishable key the catalog still loads, but orders, cart and reviews fail, because those tables are only reachable from the backend. The server prints a warning at start-up if the key is wrong. Never commit `.env` or share the secret key outside the team.
+
+```bash
+npm run dev     # starts the API on http://localhost:5001
+npm test        # runs the unit tests
+```
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev     # opens the site on http://localhost:5173
+npm test        # runs the unit tests
+```
+
+### 3. Database
+
+The tables, security rules and sample data are in `backend/supabase/schema.sql`, and the 50 products are in `backend/supabase/seed_products.sql`. Run them in the Supabase SQL Editor only when setting up a new Supabase project.
 
 ## Team
 
