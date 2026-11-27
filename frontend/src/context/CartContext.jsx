@@ -3,9 +3,10 @@ import { useAuth } from './AuthContext.jsx'
 import { useToast } from './ToastContext.jsx'
 import {
   addItem, cartCount, cartTotal, fromServerItems, loadCart, mergeMessage,
-  removeItem, saveCart, setItemQuantity, toMergeItems,
+  refreshGuestItems, removeItem, saveCart, setItemQuantity, toMergeItems,
 } from '../lib/cart.js'
 import { addCartItem, fetchCart, mergeGuestCart, removeCartItem, updateCartItem } from '../api/cart.js'
+import { fetchProducts } from '../api/products.js'
 
 // One cart for the whole site (Jira DP-14).
 //   Guest:     kept in localStorage (Sprint 1). Works without logging in.
@@ -111,10 +112,20 @@ export function CartProvider({ children }) {
     }
   }
 
-  // After an order the backend empties the saved cart; this shows the new state.
+  // Loads the current price and stock (the cart page calls this when it opens).
+  // Guest: the browser copy is updated from GET /products, because stock may have
+  //        dropped since the product was added.
+  // Logged in: the saved cart is read again (also used after an order).
   const refresh = async () => {
-    if (!loggedIn) return
-    try { await save(fetchCart) } catch { /* the next page load tries again */ }
+    try {
+      if (!loggedIn) {
+        if (guestItems.length === 0) return
+        const products = await fetchProducts()
+        setGuestItems((prev) => refreshGuestItems(prev, products))
+        return
+      }
+      await save(fetchCart)
+    } catch { /* keep what is shown; the next page load tries again */ }
   }
 
   const clear = () => (loggedIn ? refresh() : setGuestItems([]))
